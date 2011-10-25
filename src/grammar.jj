@@ -1,0 +1,172 @@
+PARSER_BEGIN(Claus)
+
+// package cz.cvut.fit.mi_run.claus;
+
+class Claus {
+  public static void main(String[] args) throws ParseException, TokenMgrError {
+	Claus parser = new Claus(System.in);
+	parser.Class();
+
+	System.out.println("SUCCESS");
+  }
+}
+
+PARSER_END(Claus)
+
+SKIP: {" " | "\n" | "\r" | "\t"}
+
+TOKEN: {
+  <CLASS_KW: "class">
+| <DEF_KW: "def">
+| <VAL_KW: "val">
+| <VAR_KW: "var">
+| <RETURN_KW: "return">
+| <NEW_KW: "new">
+| <FOR_KW: "for">
+| <LBRACE: "{">
+| <RBRACE: "}">
+| <LPAREN: "(">
+| <RPAREN: ")">
+| <LBRACKET: "[">
+| <RBRACKET: "]">
+| <COLON: ":">
+| <COMMA: ",">
+| <PERIOD: ".">
+| <DECLARATION_EQUALS: "=">
+| <PLUS: "+">
+| <MINUS: "-">
+| <MULTIPLICATION: "*">
+| <DIVISION: "/">
+| <MODULO: "%">
+| <EQUALS: "==">
+| <NOT_EQUALS: "!=">
+| <LT: "<">
+| <GT: ">">
+| <ID: ["a"-"z","A"-"Z"](["a"-"z","A"-"Z","0"-"9"])*>
+| <STRING: "\""(~["\""])*"\"">
+| <INTEGER: ["1"-"9"](["0"-"9"])*>
+}
+
+void Class():
+{}
+{
+  <CLASS_KW> <ID> <LBRACE> ClassBody() <RBRACE>
+  <EOF>
+}
+
+void ClassBody():
+{}
+{
+  (Declaration())*
+}
+
+void Declaration():
+{}
+{
+  FieldDeclaration() | MethodDeclaration()
+}
+
+void FieldDeclaration():
+{}
+{
+  VarDeclaration() | ValDeclaration()
+}
+
+void MethodDeclaration():
+{}
+{
+  <DEF_KW> <ID> MethodArgumentDeclarationList() <DECLARATION_EQUALS> <LBRACE>
+    MethodBody()
+  <RBRACE>
+}
+
+void VarDeclaration():
+{}
+{
+  <VAR_KW> <ID> [<COLON> Type()] <DECLARATION_EQUALS> Expression()
+}
+
+void ValDeclaration():
+{}
+{
+  <VAL_KW> <ID> [<COLON> Type()] <DECLARATION_EQUALS> Expression()
+}
+
+void Statement():
+{}
+{
+  VarDeclaration()
+| ValDeclaration()
+| MethodCall()
+| Instantiation()
+}
+
+void Expression():
+{}
+{
+  LOOKAHEAD(2)
+  <ID> | Math() | MethodCall() | <STRING>
+}
+
+void MethodArgumentDeclarationList():
+{}
+{
+  [<LPAREN> (MethodArgumentDeclaration())* <RPAREN>]
+}
+
+void MethodArgumentDeclaration():
+{}
+{
+  <ID> [<COLON> Type()]
+}
+
+void MethodBody():
+{}
+{
+  (Statement())*
+  [<RETURN_KW> Expression()]
+}
+
+void MethodCall():
+{}
+{
+  LOOKAHEAD(2)
+  <ID> <PERIOD> <ID> <LPAREN> [MethodArguments()] <RPAREN>
+| <ID> <LPAREN> [MethodArguments()] <RPAREN>
+}
+
+void MethodArguments():
+{}
+{
+  <ID> (<COMMA> <ID>)*
+}
+
+void Instantiation():
+{}
+{
+  <NEW_KW> <ID>
+}
+
+void Type():
+{}
+{
+  <ID> [<LBRACKET> <RBRACKET>]
+}
+
+void Math():
+{}
+{
+  MultExpression() [(<PLUS> | <MINUS>) MultExpression()]
+}
+
+void MultExpression():
+{}
+{
+  Atom() [(<MULTIPLICATION> | <DIVISION> | <MODULO>) Atom()]
+}
+
+void Atom():
+{}
+{
+  <INTEGER> | <ID> | <LPAREN> Math() <RPAREN>
+}
