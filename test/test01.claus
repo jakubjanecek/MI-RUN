@@ -4,7 +4,7 @@ class Test01 {
 
   var stringField = "Hello World!"
 
-  val stringVal = stringField
+  val stringVal = stringField.ahoj()
 
   def method1 = {
     val x = integerField
