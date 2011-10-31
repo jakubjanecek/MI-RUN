@@ -21,6 +21,7 @@ SKIP: {" " | "\n" | "\r" | "\t"}
 
 TOKEN: {
   <CLASS_KW: "class">
+| <ENTRYPOINT_KW: "entry-point">
 | <DEF_KW: "def">
 | <VAR_KW: "var">
 | <RETURN_KW: "return">
@@ -74,13 +75,19 @@ void ClassBody():
 void Declaration():
 {}
 {
-  VariableDeclaration() | MethodDeclaration()
+  VariableDeclaration() | MethodDeclaration() | EntryPoint()
+}
+
+void EntryPoint():
+{}
+{
+  <ENTRYPOINT_KW> <LBRACE> MethodBody() <RBRACE>
 }
 
 void MethodDeclaration():
 {}
 {
-  <DEF_KW> <ID> MethodArgumentDeclarationList() TypeSpecifier() <DECLARATION_EQUALS> <LBRACE>
+  <DEF_KW> <ID> <LPAREN> MethodArgumentDeclarationList() <RPAREN> TypeSpecifier() <DECLARATION_EQUALS> <LBRACE>
     MethodBody()
   <RBRACE>
 }
@@ -88,7 +95,13 @@ void MethodDeclaration():
 void MethodArgumentDeclarationList():
 {}
 {
-  <LPAREN> (MethodArgumentDeclaration())* <RPAREN>
+   [MethodArgumentDeclaration() MethodArgumentDeclarationListExt()]
+}
+
+void MethodArgumentDeclarationListExt():
+{}
+{
+  [<COMMA> MethodArgumentDeclarationList()]
 }
 
 void MethodArgumentDeclaration():
