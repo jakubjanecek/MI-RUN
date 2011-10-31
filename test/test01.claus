@@ -1,23 +1,23 @@
 class Test01 {
 
-  val integerField = 10
+  var integerField = 10
 
   var stringField = "Hello World!"
 
-  val stringVal = stringField.ahoj()
+  var stringVal = stringField.ahoj()
 
-  def method1 = {
-    val x = integerField
+  def method1() : Nothing = {
+    var x = integerField
   }
 
-  def method2() = {
-    val y: Integer = ((10 + 10) * (20 - (5 - 3)))
+  def method2() : String = {
+    var y: Integer = ((10 + 10) * (20 - (5 - 3)))
     method1()
     method3(y)
     return "test"
   }
 
-  def method3(c: Integer) = {
+  def method3(c : Integer) : Integer = {
     return c
   }
 }

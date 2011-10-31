@@ -22,7 +22,6 @@ SKIP: {" " | "\n" | "\r" | "\t"}
 TOKEN: {
   <CLASS_KW: "class">
 | <DEF_KW: "def">
-| <VAL_KW: "val">
 | <VAR_KW: "var">
 | <RETURN_KW: "return">
 | <NEW_KW: "new">
@@ -75,13 +74,7 @@ void ClassBody():
 void Declaration():
 {}
 {
-  FieldDeclaration() | MethodDeclaration()
-}
-
-void FieldDeclaration():
-{}
-{
-  VariableDeclaration() | ValueDeclaration()
+  VariableDeclaration() | MethodDeclaration()
 }
 
 void MethodDeclaration():
@@ -95,7 +88,7 @@ void MethodDeclaration():
 void MethodArgumentDeclarationList():
 {}
 {
-  [<LPAREN> (MethodArgumentDeclaration())* <RPAREN>]
+  <LPAREN> (MethodArgumentDeclaration())* <RPAREN>
 }
 
 void MethodArgumentDeclaration():
@@ -119,19 +112,13 @@ void Block():
 void VariableDeclaration():
 {}
 {
-  <VAR_KW> <ID> TypeSpecifier() <DECLARATION_EQUALS> Expression()
-}
-
-void ValueDeclaration():
-{}
-{
-  <VAL_KW> <ID> TypeSpecifier() <DECLARATION_EQUALS> Expression()
+  <VAR_KW> <ID> [TypeSpecifier()] <DECLARATION_EQUALS> Expression()
 }
 
 void TypeSpecifier():
 {}
 {
-  [<COLON> <ID> [<LBRACKET> <RBRACKET>]]
+  <COLON> <ID> [<LBRACKET> <RBRACKET>]
 }
 
 void Statement():
@@ -139,7 +126,7 @@ void Statement():
 {
   LOOKAHEAD(2)
   MethodCall()
-| LocalDeclaration()
+| VariableDeclaration()
 | Assignment()
 | Return()
 | If()
@@ -154,12 +141,6 @@ void Expression():
   MathExpression()
 | Instantiation()
 | SimpleValue()
-}
-
-void LocalDeclaration():
-{}
-{
-  VariableDeclaration() | ValueDeclaration()
 }
 
 void MethodCall():
