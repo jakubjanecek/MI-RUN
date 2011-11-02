@@ -1,0 +1,16 @@
+class Test02 {
+
+  def testNumbers(a : Integer, b : Integer) : Integer = {
+	var res : Integer = (3 * (7 * a - b) - a + 2 * b)
+	return res
+  }
+
+  def main(args : String[]) : Nothing = {
+    var tInt : Integer = testNumbers(2, 4)
+	if (tInt == 14) { 
+		println("Test celych cisel PROSEL.")
+	} else {
+		println("Test celych cisel NEPROSEL.")
+	}
+  }
+}

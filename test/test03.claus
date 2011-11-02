@@ -1,0 +1,20 @@
+class Test03 {
+
+  def testStrings(a : String[]) : String = {
+	var n : Integer = a.length()
+	var str : String = ""
+	for (i <- 0 .. n) {
+		str.append(a[i])
+	}
+	return str
+  }
+
+  def main(args : String[]) : Nothing = {
+    var array : String[] = Array("P", "a", "p", "R", "i", "k", "A")
+	if (testStrings(array) == "PapRikA") { 
+		println("Test retezcu PROSEL.")
+	} else {
+		println("Test retezcu NEPROSEL.")
+	}
+  }
+}

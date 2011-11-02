@@ -1,0 +1,24 @@
+class Test04 {
+
+  def testLoops(a : Integer, b : Integer) : Integer = {
+	var r : Integer = 0
+	var i : Integer = 0
+	while (a > i) {
+		for (j <- 0 .. i) {
+			var s = (r + j * b / a)
+			r = s
+		}
+		i = (i + 1)
+	}
+	return r
+  }
+
+  def main(args : String[]) : Nothing = {
+    var res : Integer = 7
+	if (testLoops(4, 1) == res) {
+		println("Test smycek PROSEL.")
+	} else {
+		println("Test smycek NEPROSEL.")
+	}
+  }
+}

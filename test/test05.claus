@@ -1,0 +1,24 @@
+class Test05 {
+
+  def faktorial(n : Integer) : Integer = {
+	if (n < 0) {
+		return 0
+	}
+	if (n == 0) {
+		return 1
+	}
+
+	var n1 = (n - 1)
+    var fakt1 = faktorial(n1)
+	return (n * fakt1)
+  }
+
+  def main(args : String[]) : Nothing = {
+    var f : Integer = 5040
+	if (faktorial(7) == f) { 
+		println("Test faktorialu PROSEL.")
+	} else {
+		println("Test faktorialu NEPROSEL.")
+	}
+  }
+}
