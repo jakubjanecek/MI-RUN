@@ -1,0 +1,10 @@
+class Test06 {
+
+  def foo() : Nothing = {
+    println("Testovaci soubor zprovozneni synchronizace GITu...")
+  }
+
+  def main(args : String[]) : Nothing = {
+    foo()
+  }
+}
