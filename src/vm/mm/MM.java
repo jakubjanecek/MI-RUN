@@ -5,71 +5,23 @@ import java.util.Arrays;
 
 public class MM {
 
+    public static final int WORD_SIZE = 4;
+
+    public static final int REF_SIZE = WORD_SIZE;
+
+    // MARKER + OBJ_KIND + SIZE + CLASS
+    public static final int HEADER_SIZE = 1 + 1 + WORD_SIZE + REF_SIZE;
+
+    // MEMORY
     private byte[] memory;
 
-    // private Method[] methods;
     private int firstFree = 0;
-
-    private static final byte MARKER = (byte) 0xF0;
-    private static final int WORD_SIZE = 4;
-    private static final int REF_SIZE = WORD_SIZE;
-    // MARKER + OBJ_KIND + SIZE + CLASS
-    private static final int HEADER_SIZE = 1 + 1 + WORD_SIZE + REF_SIZE;
 
     public MM(int memorySize) {
         memory = new byte[memorySize];
     }
 
-    public Pointer newObject(Pointer clazz, int size) {
-        Pointer newObject = alloc(pointerIndexedObjectSize(size));
-
-        if (newObject == null) {
-            throw new RuntimeException("Not enough memory!");
-        }
-
-        newObject.$().marker(MARKER);
-        newObject.$().kind(ObjectKind.POINTER_INDEXED);
-        newObject.$().size(size);
-        newObject.$().clazz(clazz);
-
-        return newObject;
-    }
-
-    public Pointer newClazz(Pointer metaclass, Pointer superclass, byte[] name) {
-        Pointer newClass = alloc(pointerIndexedObjectSize(3));
-
-        if (newClass == null) {
-            throw new RuntimeException("Not enough memory!");
-        }
-
-        newClass.$().marker(MARKER);
-        newClass.$().kind(ObjectKind.POINTER_INDEXED);
-        newClass.$().size(3);
-        newClass.$().clazz(metaclass);
-        newClass.$c().name(newString(name));
-        newClass.$c().superclazz(superclass);
-        newClass.$c().methods(null);
-
-        return newClass;
-    }
-
-    public Pointer newString(byte[] str) {
-        Pointer newString = alloc(byteIndexedObjectSize(str.length));
-
-        if (newString == null) {
-            throw new RuntimeException("Not enough memory!");
-        }
-
-        newString.$().marker(MARKER);
-        newString.$().kind(ObjectKind.BYTE_INDEXED);
-        newString.$().size(str.length);
-        newString.$().clazz(null);
-        newString.$b().bytes(str);
-
-        return newString;
-    }
-
-    private Pointer alloc(int size) {
+    public Pointer alloc(int size) {
         Pointer p = null;
         if (firstFree + size <= memory.length) {
             p = new Pointer(firstFree, this);
@@ -82,7 +34,7 @@ public class MM {
         return p;
     }
 
-    private void deleteObject(Pointer obj) {
+    public void deleteObject(Pointer obj) {
         int objectSize = 0;
         switch (obj.$().kind()) {
             case POINTER_INDEXED:
@@ -93,11 +45,11 @@ public class MM {
         clear(obj.address, objectSize);
     }
 
-    private int pointerIndexedObjectSize(int size) {
+    public int pointerIndexedObjectSize(int size) {
         return HEADER_SIZE + (size * REF_SIZE);
     }
 
-    private int byteIndexedObjectSize(int size) {
+    public int byteIndexedObjectSize(int size) {
         return HEADER_SIZE + size;
     }
 
@@ -208,26 +160,6 @@ public class MM {
 
         public Pointer methods() {
             return field(2);
-        }
-    }
-
-    public static enum ObjectKind {
-
-        POINTER_INDEXED((byte) 0x01), BYTE_INDEXED((byte) 0x02);
-        public byte value;
-
-        ObjectKind(byte value) {
-            this.value = value;
-        }
-
-        public static ObjectKind fromValue(byte value) {
-            for (ObjectKind kind : values()) {
-                if (kind.value == value) {
-                    return kind;
-                }
-            }
-
-            return POINTER_INDEXED;
         }
     }
 
