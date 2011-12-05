@@ -1,0 +1,251 @@
+/* Options - http://javacc.java.net/doc/JJTree.html */
+options {
+  //IGNORE_CASE = false;
+  MULTI = true;
+  NODE_PREFIX = "";
+  STATIC = false;
+}
+
+/* Claus parser */
+PARSER_BEGIN(Claus)
+
+  class Claus {
+    public static void main(String[] args) {
+      try {
+        System.out.println((new Claus(System.in)).Class());
+      } catch (ParseException pe) {
+        System.out.println("Parse exception: " + pe.getMessage());
+        return;
+      } catch (TokenMgrError tme) {
+        System.out.println("Token mgr error: " + tme.getMessage());
+        return;
+      }
+      System.out.println("Parsing finished.");
+    }
+  }
+
+PARSER_END(Claus)
+
+/* Whitespaces skipping */
+SKIP: {
+  " "
+| "\t"
+| "\n"
+| "\r"
+}
+
+/* Tokens definition */
+TOKEN: {
+  <CLASS_KW: "class">
+| <ENTRYPOINT_KW: "entry-point">
+| <DEF_KW: "def">
+| <VAR_KW: "var">
+| <RETURN_KW: "return">
+| <NEW_KW: "new">
+| <FOR_KW: "for">
+| <FOR_ARROW_KW: "<-">
+| <WHILE_KW: "while">
+| <IF_KW: "if">
+| <ELSE_KW: "else">
+| <TRUE_KW: "true">
+| <FALSE_KW: "false">
+| <LBRACE: "{">
+| <RBRACE: "}">
+| <LPAREN: "(">
+| <RPAREN: ")">
+| <LBRACKET: "[">
+| <RBRACKET: "]">
+| <COLON: ":">
+| <SEMI: ";">
+| <COMMA: ",">
+| <PERIOD: ".">
+| <DECLARATION_EQUALS: "=">
+| <PLUS: "+">
+| <MINUS: "-">
+| <MULTIPLICATION: "*">
+| <DIVISION: "/">
+| <MODULO: "%">
+| <POWER: "^">
+| <EQUALS: "==">
+| <NOT_EQUALS: "!=">
+| <LT: "<">
+| <GT: ">">
+| <ID: ["a"-"z","A"-"Z"](["a"-"z","A"-"Z","0"-"9"])*>
+| <STRING: "\""(~["\""])*"\"">
+| <INTEGER: (["0"-"9"])+>
+}
+
+/* Class */
+AbstractSyntaxTreeClass Class():
+{
+  Token t;
+}
+{
+  <CLASS_KW> t=<ID> <LBRACE> ClassContent() <RBRACE>
+  <EOF>
+  {
+    jjtThis.value = t.image;
+    return jjtThis;
+  }
+}
+
+/* Class content */
+void ClassContent():
+{}
+{
+  (Variable() | Method() | EntryPointMethod())*
+}
+
+/* Variable */
+void Variable():
+{}
+{
+  <VAR_KW> <ID> [<COLON> <ID> [<LBRACKET> <RBRACKET>]] <DECLARATION_EQUALS> Expression()
+}
+
+/* Method */
+void Method():
+{}
+{
+  <DEF_KW> <ID> <LPAREN> MethodParams() <RPAREN> <COLON> <ID> [<LBRACKET> <RBRACKET>] <DECLARATION_EQUALS> <LBRACE> MethodContent() <RBRACE>
+}
+
+void MethodParams():
+{}
+{
+   [<ID> <COLON> <ID> [<LBRACKET> <RBRACKET>] [<COMMA> MethodParams()]]
+}
+
+void MethodContent():
+{}
+{
+  (CodeBlock())*
+}
+
+/* Entry point method */
+void EntryPointMethod():
+{}
+{
+  <ENTRYPOINT_KW> <LBRACE> MethodContent() <RBRACE>
+}
+
+/* Code block */
+void CodeBlock():
+{}
+{
+  LOOKAHEAD(2)
+  Variable()
+| Assignment()
+| MethodCalling()
+| IfCondition()
+| ForLoop()
+| WhileLoop()
+| ReturnStatement()
+}
+
+/* Expression */
+void Expression():
+{}
+{
+  LOOKAHEAD(2)
+  Value()
+| Math()
+| NewInstance()
+}
+
+/* Assignment */
+void Assignment():
+{}
+{
+  <ID> [<LBRACKET> Expression() <RBRACKET>] <DECLARATION_EQUALS> Expression()
+}
+
+/* Method calling */
+void MethodCalling():
+{}
+{
+  LOOKAHEAD(2)
+  <ID> <PERIOD> <ID> <LPAREN> [Expression() (<COMMA> Expression())*] <RPAREN>
+| <ID> <LPAREN> [Expression() (<COMMA> Expression())*] <RPAREN>
+}
+
+/* Condition */
+void Condition():
+{}
+{
+  Expression() (<LT> | <GT> | <EQUALS> | <NOT_EQUALS>) Expression()
+}
+
+/* IF condition */
+void IfCondition():
+{}
+{
+  <IF_KW> <LPAREN> Condition() <RPAREN> <LBRACE> (CodeBlock())* <RBRACE>
+  [<ELSE_KW> <LBRACE> (CodeBlock())* <RBRACE>]
+}
+
+/* FOR loop */
+void ForLoop():
+{}
+{
+  <FOR_KW> <LPAREN> <ID> <FOR_ARROW_KW> Expression() <PERIOD> <PERIOD> Expression() <RPAREN> <LBRACE> (CodeBlock())* <RBRACE>
+}
+
+/* WHILE loop */
+void WhileLoop():
+{}
+{
+  <WHILE_KW> <LPAREN> Condition() <RPAREN> <LBRACE> (CodeBlock())* <RBRACE>
+}
+
+/* Return */
+void ReturnStatement():
+{}
+{
+  <RETURN_KW> Expression()
+}
+
+/* Value */
+void Value():
+{}
+{
+  LOOKAHEAD(2)
+  <INTEGER>
+| <STRING>
+| <TRUE_KW>
+| <FALSE_KW>
+| <ID> [<LBRACKET> Expression() <RBRACKET>]
+| MethodCalling()
+}
+
+/* Math */
+void Math():
+{}
+{
+  <LPAREN> Term() MathExp() <RPAREN>
+}
+
+void MathExp():
+{}
+{
+  [(<PLUS> | <MINUS>) MathTerm() MathExp()]
+}
+
+void MathTerm():
+{}
+{
+  (<INTEGER> | <ID> | Math()) MathTerms()
+}
+
+void MathTerms():
+{}
+{
+  [(<MULTIPLICATION> | <DIVISION> | <MODULO> | <POWER>) (<INTEGER> | <ID> | Math()) MathTerms()]
+}
+
+/* New instance */
+void NewInstance():
+{}
+{
+  <NEW_KW> <ID> [<LBRACKET> Expression() <RBRACKET>]
+}
