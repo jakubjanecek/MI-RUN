@@ -10,15 +10,7 @@ public class Claus {
 
     private MM mm;
 
-    private static final byte MARKER = (byte) 0xF0;
-
-    public static void main(String... args) {
-        new Claus(new MM(1024));
-    }
-
-    public Claus(MM mm) {
-        this.mm = mm;
-
+    public void test() {
         Pointer clazz = newClazz(null, null, "Car".getBytes());
         Pointer object = newObject(clazz, 2);
         object.$p().field(0, newString("test1".getBytes()));
@@ -31,6 +23,22 @@ public class Claus {
         out.close();
     }
 
+    public static void main(String... args) {
+        new Claus(new MM(1024, 1024));
+    }
+
+    public Claus(MM mm) {
+        this.mm = mm;
+
+        bootstrap();
+
+        test();
+    }
+
+    public void bootstrap() {
+
+    }
+
     public Pointer newObject(Pointer clazz, int size) {
         Pointer newObject = mm.alloc(mm.pointerIndexedObjectSize(size));
 
@@ -38,7 +46,6 @@ public class Claus {
             throw new RuntimeException("Not enough memory!");
         }
 
-        newObject.$().marker(MARKER);
         newObject.$().kind(ObjectKind.POINTER_INDEXED);
         newObject.$().size(size);
         newObject.$().clazz(clazz);
@@ -53,7 +60,6 @@ public class Claus {
             throw new RuntimeException("Not enough memory!");
         }
 
-        newClass.$().marker(MARKER);
         newClass.$().kind(ObjectKind.POINTER_INDEXED);
         newClass.$().size(3);
         newClass.$().clazz(metaclass);
@@ -71,7 +77,6 @@ public class Claus {
             throw new RuntimeException("Not enough memory!");
         }
 
-        newString.$().marker(MARKER);
         newString.$().kind(ObjectKind.BYTE_INDEXED);
         newString.$().size(str.length);
         newString.$().clazz(null);

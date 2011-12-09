@@ -1,7 +1,9 @@
 package vm.mm;
 
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public class MM {
 
@@ -12,18 +14,25 @@ public class MM {
     // MARKER + OBJ_KIND + SIZE + CLASS
     public static final int HEADER_SIZE = 1 + 1 + WORD_SIZE + REF_SIZE;
 
-    // MEMORY
-    private byte[] memory;
+    private static final byte MARKER = (byte) 0xF0;
+
+    private byte[] heap;
+
+    private byte[] stack;
+
+    private List<Method> methods;
 
     private int firstFree = 0;
 
-    public MM(int memorySize) {
-        memory = new byte[memorySize];
+    public MM(int heapSize, int stackSize) {
+        heap = new byte[heapSize];
+        stack = new byte[stackSize];
+        methods = new ArrayList<Method>();
     }
 
     public Pointer alloc(int size) {
         Pointer p = null;
-        if (firstFree + size <= memory.length) {
+        if (firstFree + size <= heap.length) {
             p = new Pointer(firstFree, this);
             clear(firstFree, size);
             firstFree += size;
@@ -55,7 +64,7 @@ public class MM {
 
     private void clear(int from, int size) {
         for (int i = from; i < size; i++) {
-            memory[i] = 0x0;
+            heap[i] = 0x0;
         }
     }
 
@@ -69,18 +78,20 @@ public class MM {
 
         public Obj(Pointer startAddress) {
             this.pointer = startAddress;
+
+            marker(MARKER);
         }
 
         public void marker(byte marker) {
-            memory[pointer.address] = marker;
+            heap[pointer.address] = marker;
         }
 
         public ObjectKind kind() {
-            return ObjectKind.fromValue(memory[pointer.address + KIND_OFFSET]);
+            return ObjectKind.fromValue(heap[pointer.address + KIND_OFFSET]);
         }
 
         public void kind(ObjectKind kind) {
-            memory[pointer.address + KIND_OFFSET] = kind.value;
+            heap[pointer.address + KIND_OFFSET] = kind.value;
         }
 
         public int size() {
@@ -124,11 +135,11 @@ public class MM {
         }
 
         public byte[] bytes() {
-            return Arrays.copyOfRange(memory, pointer.address + DATA_OFFSET, pointer.address + DATA_OFFSET + size());
+            return Arrays.copyOfRange(heap, pointer.address + DATA_OFFSET, pointer.address + DATA_OFFSET + size());
         }
 
         public void bytes(byte[] bytes) {
-            System.arraycopy(bytes, 0, memory, pointer.address + DATA_OFFSET, size());
+            System.arraycopy(bytes, 0, heap, pointer.address + DATA_OFFSET, size());
         }
     }
 
@@ -163,6 +174,27 @@ public class MM {
         }
     }
 
+    public static class Method {
+
+        private String selector;
+
+        private List<String> bytecode;
+
+        public Method(String selector) {
+            this.selector = selector;
+            bytecode = new ArrayList<String>();
+        }
+
+        public String selector() {
+            return selector;
+        }
+
+        public List<String> bytecode() {
+            return bytecode;
+        }
+
+    }
+
     private void storePointer(int address, Pointer p) {
         if (p != null) {
             storeInt(address, p.address);
@@ -175,11 +207,11 @@ public class MM {
 
     private void storeInt(int address, int value) {
         byte[] bytes = int2bytes(value);
-        System.arraycopy(bytes, 0, memory, address, 4);
+        System.arraycopy(bytes, 0, heap, address, 4);
     }
 
     private int retrieveInt(int address) {
-        return bytes2int(Arrays.copyOfRange(memory, address, address + 4));
+        return bytes2int(Arrays.copyOfRange(heap, address, address + 4));
     }
 
     private byte[] int2bytes(int value) {
@@ -201,10 +233,10 @@ public class MM {
     public void dump(PrintWriter out) {
         out.println("\n# MEMORY DUMP\naddr: hex   dec");
         int emptyCount = 0;
-        for (int i = 0; i < memory.length; i++) {
-            out.println(String.format("%04d: %02X    %d", i, new Byte(memory[i]), new Byte(memory[i])));
+        for (int i = 0; i < heap.length; i++) {
+            out.println(String.format("%04d: %02X    %d", i, new Byte(heap[i]), new Byte(heap[i])));
 
-            if (memory[i] == 0x0) {
+            if (heap[i] == 0x0) {
                 emptyCount++;
             } else {
                 emptyCount = 0;
