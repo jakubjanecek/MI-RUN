@@ -1,5 +1,7 @@
 package vm.mm;
 
+import vm.Util;
+
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -157,42 +159,29 @@ public class MM {
             return field(0);
         }
 
-        public void superclazz(Pointer superclazz) {
-            field(1, superclazz);
+        public void superclass(Pointer superclass) {
+            field(1, superclass);
         }
 
-        public Pointer superclazz() {
+        public Pointer superclass() {
             return field(1);
         }
 
+        public void metaclass(Pointer metaclass) {
+            field(2, metaclass);
+        }
+
+        public Pointer metaclass() {
+            return field(2);
+        }
+
         public void methods(Pointer methods) {
-            field(2, methods);
+            field(3, methods);
         }
 
         public Pointer methods() {
-            return field(2);
+            return field(3);
         }
-    }
-
-    public static class Method {
-
-        private String selector;
-
-        private List<String> bytecode;
-
-        public Method(String selector) {
-            this.selector = selector;
-            bytecode = new ArrayList<String>();
-        }
-
-        public String selector() {
-            return selector;
-        }
-
-        public List<String> bytecode() {
-            return bytecode;
-        }
-
     }
 
     private void storePointer(int address, Pointer p) {
@@ -206,28 +195,12 @@ public class MM {
     }
 
     private void storeInt(int address, int value) {
-        byte[] bytes = int2bytes(value);
+        byte[] bytes = Util.int2bytes(value);
         System.arraycopy(bytes, 0, heap, address, 4);
     }
 
     private int retrieveInt(int address) {
-        return bytes2int(Arrays.copyOfRange(heap, address, address + 4));
-    }
-
-    private byte[] int2bytes(int value) {
-        return new byte[]{
-                (byte) (value >>> 24),
-                (byte) (value >>> 16),
-                (byte) (value >>> 8),
-                (byte) value
-        };
-    }
-
-    private int bytes2int(byte[] b) {
-        return (b[0] << 24)
-                + ((b[1] & 0xFF) << 16)
-                + ((b[2] & 0xFF) << 8)
-                + (b[3] & 0xFF);
+        return Util.bytes2int(Arrays.copyOfRange(heap, address, address + 4));
     }
 
     public void dump(PrintWriter out) {
