@@ -6,9 +6,10 @@ import vm.mm.ObjectKind;
 import vm.mm.Pointer;
 
 import java.io.PrintWriter;
+import java.util.List;
 
-import static vm.Util.bytes2str;
-import static vm.Util.str2bytes;
+import static java.util.Arrays.asList;
+import static vm.Util.*;
 
 public class Claus {
 
@@ -18,13 +19,23 @@ public class Claus {
 
     private Pointer classOfObject;
 
-    public void test() {
-        Pointer clazz = newClazz(str2bytes("Car"), null);
-        Pointer object = newObject(clazz, 2);
-        object.$p().field(0, newString(str2bytes("test1")));
+    private Pointer classOfString;
 
-        System.out.println(bytes2str(object.$().clazz().$c().name().$b().bytes()));
-        System.out.println(bytes2str(object.$p().field(0).$b().bytes()));
+    private Pointer classOfInteger;
+
+    public void test() {
+        Pointer classCar = newClazz(str2bytes("Car"), null);
+        Pointer methodDictionaryOfCar = newMethodDictionary(asList(new Method[]{newMethod("drive", new byte[0])}));
+        classCar.$c().methods(methodDictionaryOfCar);
+
+        Pointer objectCar = newObject(classCar, 2);
+        objectCar.$p().field(0, newString(str2bytes("test1")));
+
+        System.out.println(bytes2str(objectCar.$().clazz().$c().name().$b().bytes()));
+        System.out.println(bytes2str(objectCar.$p().field(0).$b().bytes()));
+
+        callMethod(objectCar, "getObjectID");
+        callMethod(objectCar, "drive");
 
         PrintWriter out = new PrintWriter(System.out);
         mm.dump(out);
@@ -44,13 +55,20 @@ public class Claus {
     }
 
     public void bootstrap() {
-        metaclass = newClazz(str2bytes("Metaclass"), null);
-        classOfObject = newClazz(str2bytes("Object"), null);
+        metaclass = newClazz(str2bytes("Metaclass"));
+        classOfObject = newClazz(str2bytes("Object"), mm.NULL);
         metaclass.$c().metaclass(metaclass);
         metaclass.$c().superclass(classOfObject);
 
+        Pointer methodDictionaryOfObject = newMethodDictionary(asList(new Method[]{newMethod("getObjectID", new byte[0])}));
+        classOfObject.$c().methods(methodDictionaryOfObject);
+
+        classOfString = newClazz(str2bytes("String"));
+        classOfInteger = newClazz(str2bytes("Integer"));
+
         // TODO
         // prepare classes such as Integer, String, Array and so on
+        // necessary to add methdos to them
     }
 
     public Pointer newObject(Pointer clazz, int size) {
@@ -67,15 +85,19 @@ public class Claus {
         return newObject;
     }
 
+    public Pointer newClazz(byte[] name) {
+        return newClazz(name, null);
+    }
+
     public Pointer newClazz(byte[] name, Pointer superclass) {
-        Pointer newClass = mm.alloc(mm.pointerIndexedObjectSize(3));
+        Pointer newClass = mm.alloc(mm.pointerIndexedObjectSize(4));
 
         if (newClass == null) {
             throw new RuntimeException("Not enough memory!");
         }
 
         newClass.$().kind(ObjectKind.POINTER_INDEXED);
-        newClass.$().size(3);
+        newClass.$().size(4);
 
         if (metaclass != null) {
             newClass.$().clazz(metaclass);
@@ -87,9 +109,23 @@ public class Claus {
         newClass.$c().superclass(superclass);
 
         newClass.$c().name(newString(name));
-        newClass.$c().methods(null);
+        newClass.$c().methods(mm.NULL);
 
         return newClass;
+    }
+
+    public Method newMethod(String selector, byte[] bytecode) {
+        return new Method(selector, bytecode);
+    }
+
+    public Pointer newMethodDictionary(List<Method> methods) {
+        Pointer methodDictionary = newObject(classOfObject, methods.size());
+
+        for (int i = 0; i < methods.size(); i++) {
+            methodDictionary.$p().field(i, newInteger(int2bytes(mm.addMethod(methods.get(i)))));
+        }
+
+        return methodDictionary;
     }
 
     public Pointer newString(byte[] str) {
@@ -101,51 +137,66 @@ public class Claus {
 
         newString.$().kind(ObjectKind.BYTE_INDEXED);
         newString.$().size(str.length);
-        newString.$().clazz(null);
+        newString.$().clazz(classOfString);
         newString.$b().bytes(str);
 
         return newString;
     }
-//    obj* send0 ( obj* rec, char *selector ) {
-//        method* m = lookup ( (class*)rec->class, selector );
-//        if (m == NULL) error1("No method found (%s)\n", selector);
-//        return m->code.f0(rec);
-//    }
 
-//    method* lookup ( class *search, char* selector) {
-//        class* cls = search;
-//        int i;
-//        while ( cls ) {
-//            for ( i = 0; i < obj_size ( cls->methods ) ; i++ ) {
-//                if (obj_field_get(cls->methods, i) != NULL) {
-//                    method* m = (method*)obj_field_get(cls->methods, i);
-//                    if (strcmp(selector, obj_bytes(m->selector)) == 0) 
-//                        return m;                
-//                }
-//            }
-//            cls = cls->superclass;
-//        }
-//        return NULL;
-//    }
+    public Pointer newInteger(byte[] integer) {
+        Pointer newInteger = mm.alloc(mm.byteIndexedObjectSize(MM.WORD_SIZE));
+
+        if (newInteger == null) {
+            throw new RuntimeException("Not enough memory!");
+        }
+
+        newInteger.$().kind(ObjectKind.BYTE_INDEXED);
+        newInteger.$().size(MM.WORD_SIZE);
+        newInteger.$().clazz(classOfInteger);
+        newInteger.$b().bytes(integer);
+
+        return newInteger;
+    }
+
+    private void interpret() {
+
+    }
 
     private void callMethod(Pointer obj, String selector) {
         Pointer objectClass = obj.$().clazz();
-        Method method = methodLookup(objectClass, selector);
+        Method method = lookupMethod(objectClass, selector);
 
         if (method != null) {
             // TODO
             // call it
+            System.out.println("Calling method '" + method.selector() + "'");
         } else {
             throw new RuntimeException("Method '" + selector + "' not found in class '" + bytes2str(objectClass.$c().name().$b().bytes()) + "'");
         }
     }
 
-    private Method methodLookup(Pointer clazz, String selector) {
+    private Method lookupMethod(Pointer clazz, String selector) {
         Pointer current = clazz;
-        while (current != null) {
+        while (!current.isNull()) {
             MM.Clazz c = current.$c();
             Pointer classMethods = c.methods();
-            
+
+            if (!classMethods.isNull()) {
+                MM.PointerIndexedObj methodDictionary = classMethods.$p();
+                int size = methodDictionary.size();
+
+                for (int i = 0; i < size; i++) {
+                    Pointer methodPointer = methodDictionary.field(i);
+                    int methodIndex = bytes2int(methodPointer.$b().bytes());
+
+                    Method m = mm.method(methodIndex);
+
+                    if (m.selector().equals(selector)) {
+                        return m;
+                    }
+                }
+            }
+
             current = c.superclass();
         }
 

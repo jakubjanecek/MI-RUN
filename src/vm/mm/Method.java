@@ -6,9 +6,9 @@ public class Method {
 
     private byte[] bytecode;
 
-    public Method(String selector) {
+    public Method(String selector, byte[] bytecode) {
         this.selector = selector;
-//        bytecode = new ArrayList<String>();
+        this.bytecode = bytecode;
     }
 
     public String selector() {
@@ -16,8 +16,7 @@ public class Method {
     }
 
     public byte[] bytecode() {
-        return null;
-//        return bytecode;
+        return bytecode;
     }
 
 }

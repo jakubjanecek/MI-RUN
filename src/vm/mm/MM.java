@@ -18,6 +18,8 @@ public class MM {
 
     private static final byte MARKER = (byte) 0xF0;
 
+    public final Pointer NULL = new Pointer(0xFFFFFFFF, this);
+
     private byte[] heap;
 
     private byte[] stack;
@@ -43,6 +45,15 @@ public class MM {
         }
 
         return p;
+    }
+
+    public Method method(int index) {
+        return methods.get(index);
+    }
+
+    public int addMethod(Method m) {
+        methods.add(m);
+        return methods.indexOf(m);
     }
 
     public void deleteObject(Pointer obj) {
