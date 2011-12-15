@@ -1,9 +1,6 @@
 package vm;
 
-import vm.mm.MM;
-import vm.mm.Method;
-import vm.mm.ObjectKind;
-import vm.mm.Pointer;
+import vm.mm.*;
 
 import java.io.PrintWriter;
 import java.util.List;
@@ -23,9 +20,25 @@ public class Claus {
 
     private Pointer classOfInteger;
 
+    // maybe move to MM
+    private int programCounter = 0;
+
+    // maybe move to MM
+    private int stackPointer = 0;
+
+    // maybe move to MM
+    private int basePointer = 0;
+
     public void test() {
         Pointer classCar = newClazz(str2bytes("Car"), null);
-        Pointer methodDictionaryOfCar = newMethodDictionary(asList(new Method[]{newMethod("drive", new byte[0])}));
+
+        byte[] printSyscall = int2bytes(newInteger(int2bytes(1)).address);
+        byte[] methodBytecode = new byte[]{
+                0x01, printSyscall[0], printSyscall[1], printSyscall[2], printSyscall[3]
+        };
+
+        CodePointer methodPointer = mm.storeMethod(methodBytecode);
+        Pointer methodDictionaryOfCar = newMethodDictionary(asList(new Method[]{newMethod("drive", methodPointer)}));
         classCar.$c().methods(methodDictionaryOfCar);
 
         Pointer objectCar = newObject(classCar, 2);
@@ -37,17 +50,33 @@ public class Claus {
         callMethod(objectCar, "getObjectID");
         callMethod(objectCar, "drive");
 
+        // STACK
+        mm.push(newInteger(int2bytes(1)));
+        mm.push(newString(str2bytes("test")));
+        mm.push(newInteger(int2bytes(3)));
+        System.out.println(bytes2int(mm.pop().$b().bytes()));
+        System.out.println(bytes2str(mm.pop().$b().bytes()));
+        System.out.println(bytes2int(mm.pop().$b().bytes()));
+
+
+        // SYSCALLS
+        mm.push(newString(str2bytes("testing syscall")));
+        Syscalls.ints2calls.get(1).call();
+
+
         PrintWriter out = new PrintWriter(System.out);
         mm.dump(out);
         out.close();
     }
 
     public static void main(String... args) {
-        new Claus(new MM(1024, 1024));
+        new Claus(new MM(1024, 1024, 1024));
     }
 
     public Claus(MM mm) {
         this.mm = mm;
+
+        syscalls();
 
         bootstrap();
 
@@ -60,7 +89,8 @@ public class Claus {
         metaclass.$c().metaclass(metaclass);
         metaclass.$c().superclass(classOfObject);
 
-        Pointer methodDictionaryOfObject = newMethodDictionary(asList(new Method[]{newMethod("getObjectID", new byte[0])}));
+        CodePointer methodPointer = mm.storeMethod(new byte[1]);
+        Pointer methodDictionaryOfObject = newMethodDictionary(asList(new Method[]{newMethod("getObjectID", methodPointer)}));
         classOfObject.$c().methods(methodDictionaryOfObject);
 
         classOfString = newClazz(str2bytes("String"));
@@ -114,7 +144,7 @@ public class Claus {
         return newClass;
     }
 
-    public Method newMethod(String selector, byte[] bytecode) {
+    public Method newMethod(String selector, CodePointer bytecode) {
         return new Method(selector, bytecode);
     }
 
@@ -169,7 +199,23 @@ public class Claus {
         if (method != null) {
             // TODO
             // call it
-            System.out.println("Calling method '" + method.selector() + "'");
+            System.out.println("Calling method '" + method.selector() + "' at " + method.bytecode().address);
+
+            byte instruction = mm.code[method.bytecode().address];
+            System.out.println("isntr: " + instruction);
+            switch (instruction) {
+                case 0x01:
+                    // TODO replace +1 with constant
+                    int syscall = mm.retrieveInt(mm.stack, method.bytecode().address + 1);
+                    System.out.println(syscall);
+//                    Syscalls.ints2calls.get(syscall).call();
+                    break;
+                case 0x00:
+                    // NOP
+                    break;
+                default:
+                    throw new RuntimeException("Unknown instruction.");
+            }
         } else {
             throw new RuntimeException("Method '" + selector + "' not found in class '" + bytes2str(objectClass.$c().name().$b().bytes()) + "'");
         }
@@ -203,5 +249,25 @@ public class Claus {
         return null;
     }
 
+    private void syscalls() {
+        Syscalls.ints2calls.put(1, new Syscall("print") {
+            @Override
+            public void call() {
+                System.out.println(bytes2str(mm.pop().$b().bytes()));
+            }
+        });
+    }
+
+    public abstract class Syscall {
+
+        public String name;
+
+        public Syscall(String name) {
+            this.name = name;
+        }
+
+        abstract public void call();
+
+    }
 
 }

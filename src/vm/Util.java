@@ -25,4 +25,8 @@ public class Util {
                 + ((b[2] & 0xFF) << 8)
                 + (b[3] & 0xFF);
     }
+
+    public static Byte int2Byte(int b) {
+        return new Byte((byte) b);
+    }
 }

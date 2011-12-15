@@ -4,9 +4,9 @@ public class Method {
 
     private String selector;
 
-    private byte[] bytecode;
+    private CodePointer bytecode;
 
-    public Method(String selector, byte[] bytecode) {
+    public Method(String selector, CodePointer bytecode) {
         this.selector = selector;
         this.bytecode = bytecode;
     }
@@ -15,7 +15,7 @@ public class Method {
         return selector;
     }
 
-    public byte[] bytecode() {
+    public CodePointer bytecode() {
         return bytecode;
     }
 

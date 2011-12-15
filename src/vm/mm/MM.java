@@ -7,6 +7,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+// TODO
+// operace pro stack, viz. kody od Clause
+// pak to bude tak, ze vezme se prvni instrukce a zacne se zpracovavat, stack funguje pouze jako odkladiste promennych (objektu), atd. => zadny kod tam neni!!!
+
 public class MM {
 
     public static final int WORD_SIZE = 4;
@@ -18,17 +22,23 @@ public class MM {
 
     private static final byte MARKER = (byte) 0xF0;
 
+    public static final byte FREE_MARKER = (byte) 0x0;
+
     public final Pointer NULL = new Pointer(0xFFFFFFFF, this);
 
-    private byte[] heap;
+    public byte[] code;
+    private int firstFreeCodeByte = 0;
 
-    private byte[] stack;
+    public byte[] heap;
+    private int firstFreeHeapByte = 0;
+
+    public byte[] stack;
+    private int firstFreeStackByte = 0;
 
     private List<Method> methods;
 
-    private int firstFree = 0;
-
-    public MM(int heapSize, int stackSize) {
+    public MM(int codeSize, int heapSize, int stackSize) {
+        code = new byte[codeSize];
         heap = new byte[heapSize];
         stack = new byte[stackSize];
         methods = new ArrayList<Method>();
@@ -36,10 +46,10 @@ public class MM {
 
     public Pointer alloc(int size) {
         Pointer p = null;
-        if (firstFree + size <= heap.length) {
-            p = new Pointer(firstFree, this);
-            clear(firstFree, size);
-            firstFree += size;
+        if (firstFreeHeapByte + size <= heap.length) {
+            p = new Pointer(firstFreeHeapByte, this);
+            clear(heap, firstFreeHeapByte, size);
+            firstFreeHeapByte += size;
         } else {
             // garbage collection
         }
@@ -47,16 +57,7 @@ public class MM {
         return p;
     }
 
-    public Method method(int index) {
-        return methods.get(index);
-    }
-
-    public int addMethod(Method m) {
-        methods.add(m);
-        return methods.indexOf(m);
-    }
-
-    public void deleteObject(Pointer obj) {
+    public void free(Pointer obj) {
         int objectSize = 0;
         switch (obj.$().kind()) {
             case POINTER_INDEXED:
@@ -64,7 +65,54 @@ public class MM {
             case BYTE_INDEXED:
                 objectSize = byteIndexedObjectSize(obj.$().size());
         }
-        clear(obj.address, objectSize);
+        clear(heap, obj.address, objectSize);
+    }
+
+    // TODO
+    public void newFrame() {
+
+    }
+
+    public void push(Pointer object) {
+        if (firstFreeStackByte + WORD_SIZE <= stack.length) {
+            storePointer(stack, firstFreeStackByte, object);
+            firstFreeStackByte += WORD_SIZE;
+        } else {
+            throw new RuntimeException("Stack overflow!");
+        }
+    }
+
+    public Pointer pop() {
+        if (firstFreeStackByte - WORD_SIZE >= 0) {
+            firstFreeStackByte -= WORD_SIZE;
+            Pointer p = retrievePointer(stack, firstFreeStackByte);
+            clear(stack, firstFreeStackByte, WORD_SIZE);
+            return p;
+        } else {
+            throw new RuntimeException("Nothing to pop from stack!");
+        }
+    }
+
+    public CodePointer storeMethod(byte[] bytecode) {
+        CodePointer p = null;
+        if (firstFreeCodeByte + bytecode.length <= code.length) {
+            p = new CodePointer(firstFreeCodeByte, this);
+            System.arraycopy(bytecode, 0, code, firstFreeCodeByte, bytecode.length);
+            firstFreeCodeByte += bytecode.length;
+        } else {
+            throw new RuntimeException("Not enough memory for code!");
+        }
+
+        return p;
+    }
+
+    public int addMethod(Method m) {
+        methods.add(m);
+        return methods.indexOf(m);
+    }
+
+    public Method method(int index) {
+        return methods.get(index);
     }
 
     public int pointerIndexedObjectSize(int size) {
@@ -75,9 +123,9 @@ public class MM {
         return HEADER_SIZE + size;
     }
 
-    private void clear(int from, int size) {
+    private void clear(byte[] what, int from, int size) {
         for (int i = from; i < size; i++) {
-            heap[i] = 0x0;
+            what[i] = FREE_MARKER;
         }
     }
 
@@ -108,19 +156,19 @@ public class MM {
         }
 
         public int size() {
-            return retrieveInt(pointer.address + SIZE_OFFSET);
+            return retrieveInt(heap, pointer.address + SIZE_OFFSET);
         }
 
         public void size(int size) {
-            storeInt(pointer.address + SIZE_OFFSET, size);
+            storeInt(heap, pointer.address + SIZE_OFFSET, size);
         }
 
         public Pointer clazz() {
-            return retrievePointer(pointer.address + CLASS_OFFSET);
+            return retrievePointer(heap, pointer.address + CLASS_OFFSET);
         }
 
         public void clazz(Pointer p) {
-            storePointer(pointer.address + CLASS_OFFSET, p);
+            storePointer(heap, pointer.address + CLASS_OFFSET, p);
         }
     }
 
@@ -132,12 +180,12 @@ public class MM {
 
         public Pointer field(int index) {
             int address = pointer.address + DATA_OFFSET + (index * REF_SIZE);
-            return retrievePointer(address);
+            return retrievePointer(heap, address);
         }
 
         public void field(int index, Pointer obj) {
             int address = pointer.address + DATA_OFFSET + (index * REF_SIZE);
-            storePointer(address, obj);
+            storePointer(heap, address, obj);
         }
     }
 
@@ -195,42 +243,77 @@ public class MM {
         }
     }
 
-    private void storePointer(int address, Pointer p) {
+    public void storePointer(byte[] where, int address, Pointer p) {
         if (p != null) {
-            storeInt(address, p.address);
+            storeInt(where, address, p.address);
         }
     }
 
-    private Pointer retrievePointer(int address) {
-        return new Pointer(retrieveInt(address), this);
+    public Pointer retrievePointer(byte[] from, int address) {
+        return new Pointer(retrieveInt(from, address), this);
     }
 
-    private void storeInt(int address, int value) {
+    public void storeInt(byte[] where, int address, int value) {
         byte[] bytes = Util.int2bytes(value);
-        System.arraycopy(bytes, 0, heap, address, 4);
+        System.arraycopy(bytes, 0, where, address, 4);
     }
 
-    private int retrieveInt(int address) {
-        return Util.bytes2int(Arrays.copyOfRange(heap, address, address + 4));
+    public int retrieveInt(byte[] from, int address) {
+        return Util.bytes2int(Arrays.copyOfRange(from, address, address + 4));
     }
 
     public void dump(PrintWriter out) {
-        out.println("\n# MEMORY DUMP\naddr: hex   dec");
-        int emptyCount = 0;
-        for (int i = 0; i < heap.length; i++) {
-            out.println(String.format("%04d: %02X    %d", i, new Byte(heap[i]), new Byte(heap[i])));
+        int numOfBytesOnRow = 8;
 
-            if (heap[i] == 0x0) {
-                emptyCount++;
-            } else {
-                emptyCount = 0;
+        out.println();
+        out.println("# MEMORY DUMP");
+        out.println("HEAP");
+        dumpByteArray(heap, numOfBytesOnRow, out);
+
+        out.println();
+        out.println();
+        out.println("STACK");
+        dumpByteArray(stack, numOfBytesOnRow, out);
+
+        out.println();
+        out.println();
+        out.println("CODE");
+        dumpByteArray(code, numOfBytesOnRow, out);
+
+        out.println();
+    }
+
+    private void dumpByteArray(byte[] arr, int numOfBytesOnRow, PrintWriter out) {
+        int emptyCount = 0;
+
+        for (int i = 0; i < arr.length; i += numOfBytesOnRow) {
+            out.print(String.format("%04d: ", i));
+            for (int j = i; j < i + numOfBytesOnRow; j++) {
+                if (j < arr.length) {
+                    out.print(String.format("%02X ", new Byte(arr[j])));
+
+                    if (arr[j] == FREE_MARKER) {
+                        emptyCount++;
+                    } else {
+                        emptyCount = 0;
+                    }
+                }
+            }
+
+            out.print("          ");
+
+            for (int j = i; j < i + numOfBytesOnRow; j++) {
+                if (j < arr.length) {
+                    out.print(String.format("%4d   ", new Byte(arr[j])));
+                }
             }
 
             if (emptyCount > 20) {
                 break;
             }
+
+            out.println();
         }
-        out.println();
     }
 
 }
