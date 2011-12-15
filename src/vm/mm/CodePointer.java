@@ -16,6 +16,10 @@ public class CodePointer {
         this.mm = mm;
     }
 
+    public CodePointer arith(int diff) {
+        return new CodePointer(address + diff, mm);
+    }
+
     @Override
     public int hashCode() {
         return address;

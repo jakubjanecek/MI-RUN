@@ -32,7 +32,8 @@ public class Claus {
     public void test() {
         Pointer classCar = newClazz(str2bytes("Car"), null);
 
-        byte[] printSyscall = int2bytes(newInteger(int2bytes(1)).address);
+        // save 1 as an object or as a constant in implementation language?
+        byte[] printSyscall = int2bytes(1);
         byte[] methodBytecode = new byte[]{
                 0x01, printSyscall[0], printSyscall[1], printSyscall[2], printSyscall[3]
         };
@@ -44,24 +45,25 @@ public class Claus {
         Pointer objectCar = newObject(classCar, 2);
         objectCar.$p().field(0, newString(str2bytes("test1")));
 
-        System.out.println(bytes2str(objectCar.$().clazz().$c().name().$b().bytes()));
-        System.out.println(bytes2str(objectCar.$p().field(0).$b().bytes()));
+//        System.out.println(bytes2str(objectCar.$().clazz().$c().name().$b().bytes()));
+//        System.out.println(bytes2str(objectCar.$p().field(0).$b().bytes()));
 
-        callMethod(objectCar, "getObjectID");
+//        callMethod(objectCar, "getObjectID");
+        mm.push(newString(str2bytes("test call")));
         callMethod(objectCar, "drive");
 
         // STACK
-        mm.push(newInteger(int2bytes(1)));
-        mm.push(newString(str2bytes("test")));
-        mm.push(newInteger(int2bytes(3)));
-        System.out.println(bytes2int(mm.pop().$b().bytes()));
-        System.out.println(bytes2str(mm.pop().$b().bytes()));
-        System.out.println(bytes2int(mm.pop().$b().bytes()));
+//        mm.push(newInteger(int2bytes(1)));
+//        mm.push(newString(str2bytes("test")));
+//        mm.push(newInteger(int2bytes(3)));
+//        System.out.println(bytes2int(mm.pop().$b().bytes()));
+//        System.out.println(bytes2str(mm.pop().$b().bytes()));
+//        System.out.println(bytes2int(mm.pop().$b().bytes()));
 
 
         // SYSCALLS
-        mm.push(newString(str2bytes("testing syscall")));
-        Syscalls.ints2calls.get(1).call();
+//        mm.push(newString(str2bytes("testing syscall")));
+//        Syscalls.ints2calls.get(1).call();
 
 
         PrintWriter out = new PrintWriter(System.out);
@@ -201,14 +203,15 @@ public class Claus {
             // call it
             System.out.println("Calling method '" + method.selector() + "' at " + method.bytecode().address);
 
-            byte instruction = mm.code[method.bytecode().address];
-            System.out.println("isntr: " + instruction);
+            byte instruction = mm.getByteFromBC(method.bytecode());
             switch (instruction) {
                 case 0x01:
                     // TODO replace +1 with constant
-                    int syscall = mm.retrieveInt(mm.stack, method.bytecode().address + 1);
+                    System.out.println(method.bytecode().address);
+                    System.out.println(method.bytecode().arith(1).address);
+                    int syscall = mm.getPointerFromBC(method.bytecode().arith(1));
                     System.out.println(syscall);
-//                    Syscalls.ints2calls.get(syscall).call();
+                    Syscalls.ints2calls.get(syscall).call();
                     break;
                 case 0x00:
                     // NOP

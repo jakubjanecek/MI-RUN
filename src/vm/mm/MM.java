@@ -7,10 +7,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-// TODO
-// operace pro stack, viz. kody od Clause
-// pak to bude tak, ze vezme se prvni instrukce a zacne se zpracovavat, stack funguje pouze jako odkladiste promennych (objektu), atd. => zadny kod tam neni!!!
-
 public class MM {
 
     public static final int WORD_SIZE = 4;
@@ -26,13 +22,13 @@ public class MM {
 
     public final Pointer NULL = new Pointer(0xFFFFFFFF, this);
 
-    public byte[] code;
+    private byte[] code;
     private int firstFreeCodeByte = 0;
 
-    public byte[] heap;
+    private byte[] heap;
     private int firstFreeHeapByte = 0;
 
-    public byte[] stack;
+    private byte[] stack;
     private int firstFreeStackByte = 0;
 
     private List<Method> methods;
@@ -115,6 +111,14 @@ public class MM {
         return methods.get(index);
     }
 
+    public byte getByteFromBC(CodePointer pointer) {
+        return code[pointer.address];
+    }
+
+    public int getPointerFromBC(CodePointer pointer) {
+        return retrieveInt(code, pointer.address);
+    }
+
     public int pointerIndexedObjectSize(int size) {
         return HEADER_SIZE + (size * REF_SIZE);
     }
@@ -126,6 +130,79 @@ public class MM {
     private void clear(byte[] what, int from, int size) {
         for (int i = from; i < size; i++) {
             what[i] = FREE_MARKER;
+        }
+    }
+
+    private void storePointer(byte[] where, int address, Pointer p) {
+        if (p != null) {
+            storeInt(where, address, p.address);
+        }
+    }
+
+    private Pointer retrievePointer(byte[] from, int address) {
+        return new Pointer(retrieveInt(from, address), this);
+    }
+
+    private void storeInt(byte[] where, int address, int value) {
+        byte[] bytes = Util.int2bytes(value);
+        System.arraycopy(bytes, 0, where, address, 4);
+    }
+
+    private int retrieveInt(byte[] from, int address) {
+        return Util.bytes2int(Arrays.copyOfRange(from, address, address + 4));
+    }
+
+    public void dump(PrintWriter out) {
+        int numOfBytesOnRow = 8;
+
+        out.println();
+        out.println("# MEMORY DUMP");
+        out.println("HEAP");
+        dumpByteArray(heap, numOfBytesOnRow, out);
+
+        out.println();
+        out.println();
+        out.println("STACK");
+        dumpByteArray(stack, numOfBytesOnRow, out);
+
+        out.println();
+        out.println();
+        out.println("CODE");
+        dumpByteArray(code, numOfBytesOnRow, out);
+
+        out.println();
+    }
+
+    private void dumpByteArray(byte[] arr, int numOfBytesOnRow, PrintWriter out) {
+        int emptyCount = 0;
+
+        for (int i = 0; i < arr.length; i += numOfBytesOnRow) {
+            out.print(String.format("%04d: ", i));
+            for (int j = i; j < i + numOfBytesOnRow; j++) {
+                if (j < arr.length) {
+                    out.print(String.format("%02X ", new Byte(arr[j])));
+
+                    if (arr[j] == FREE_MARKER) {
+                        emptyCount++;
+                    } else {
+                        emptyCount = 0;
+                    }
+                }
+            }
+
+            out.print("          ");
+
+            for (int j = i; j < i + numOfBytesOnRow; j++) {
+                if (j < arr.length) {
+                    out.print(String.format("%4d   ", new Byte(arr[j])));
+                }
+            }
+
+            if (emptyCount > 20) {
+                break;
+            }
+
+            out.println();
         }
     }
 
@@ -240,79 +317,6 @@ public class MM {
 
         public Pointer methods() {
             return field(3);
-        }
-    }
-
-    public void storePointer(byte[] where, int address, Pointer p) {
-        if (p != null) {
-            storeInt(where, address, p.address);
-        }
-    }
-
-    public Pointer retrievePointer(byte[] from, int address) {
-        return new Pointer(retrieveInt(from, address), this);
-    }
-
-    public void storeInt(byte[] where, int address, int value) {
-        byte[] bytes = Util.int2bytes(value);
-        System.arraycopy(bytes, 0, where, address, 4);
-    }
-
-    public int retrieveInt(byte[] from, int address) {
-        return Util.bytes2int(Arrays.copyOfRange(from, address, address + 4));
-    }
-
-    public void dump(PrintWriter out) {
-        int numOfBytesOnRow = 8;
-
-        out.println();
-        out.println("# MEMORY DUMP");
-        out.println("HEAP");
-        dumpByteArray(heap, numOfBytesOnRow, out);
-
-        out.println();
-        out.println();
-        out.println("STACK");
-        dumpByteArray(stack, numOfBytesOnRow, out);
-
-        out.println();
-        out.println();
-        out.println("CODE");
-        dumpByteArray(code, numOfBytesOnRow, out);
-
-        out.println();
-    }
-
-    private void dumpByteArray(byte[] arr, int numOfBytesOnRow, PrintWriter out) {
-        int emptyCount = 0;
-
-        for (int i = 0; i < arr.length; i += numOfBytesOnRow) {
-            out.print(String.format("%04d: ", i));
-            for (int j = i; j < i + numOfBytesOnRow; j++) {
-                if (j < arr.length) {
-                    out.print(String.format("%02X ", new Byte(arr[j])));
-
-                    if (arr[j] == FREE_MARKER) {
-                        emptyCount++;
-                    } else {
-                        emptyCount = 0;
-                    }
-                }
-            }
-
-            out.print("          ");
-
-            for (int j = i; j < i + numOfBytesOnRow; j++) {
-                if (j < arr.length) {
-                    out.print(String.format("%4d   ", new Byte(arr[j])));
-                }
-            }
-
-            if (emptyCount > 20) {
-                break;
-            }
-
-            out.println();
         }
     }
 
