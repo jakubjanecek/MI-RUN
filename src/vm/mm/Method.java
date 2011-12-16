@@ -6,9 +6,12 @@ public class Method {
 
     private CodePointer bytecode;
 
-    public Method(String selector, CodePointer bytecode) {
+    private int numOfLocals;
+
+    public Method(String selector, CodePointer bytecode, int numOfLocals) {
         this.selector = selector;
         this.bytecode = bytecode;
+        this.numOfLocals = numOfLocals;
     }
 
     public String selector() {
@@ -17,6 +20,10 @@ public class Method {
 
     public CodePointer bytecodePointer() {
         return bytecode;
+    }
+
+    public int numOfLocals() {
+        return numOfLocals;
     }
 
 }

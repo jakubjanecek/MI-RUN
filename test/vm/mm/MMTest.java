@@ -35,13 +35,13 @@ public class MMTest {
 
     @Test
     public void stack() {
-        mm.push(vm.newInteger(int2bytes(1)));
-        mm.push(vm.newString(str2bytes("two")));
-        mm.push(vm.newInteger(int2bytes(3)));
+        mm.pushPointer(vm.newInteger(int2bytes(1)));
+        mm.pushPointer(vm.newString(str2bytes("two")));
+        mm.pushPointer(vm.newInteger(int2bytes(3)));
 
-        assertEquals(3, bytes2int(mm.pop().$b().bytes()));
-        assertEquals("two", bytes2str(mm.pop().$b().bytes()));
-        assertEquals(1, bytes2int(mm.pop().$b().bytes()));
+        assertEquals(3, bytes2int(mm.popPointer().$b().bytes()));
+        assertEquals("two", bytes2str(mm.popPointer().$b().bytes()));
+        assertEquals(1, bytes2int(mm.popPointer().$b().bytes()));
     }
 
     @Test(expected = RuntimeException.class)
@@ -49,17 +49,17 @@ public class MMTest {
         MM mm = new MM(1024, 1024, 2);
         Claus vm = new Claus(mm);
 
-        mm.push(vm.newInteger(int2bytes(1)));
-        mm.push(vm.newString(str2bytes("two")));
-        mm.push(vm.newInteger(int2bytes(3)));
+        mm.pushPointer(vm.newInteger(int2bytes(1)));
+        mm.pushPointer(vm.newString(str2bytes("two")));
+        mm.pushPointer(vm.newInteger(int2bytes(3)));
     }
 
     @Test(expected = RuntimeException.class)
     public void stackUnderflow() {
-        mm.push(vm.newInteger(int2bytes(1)));
+        mm.pushPointer(vm.newInteger(int2bytes(1)));
 
-        mm.pop();
-        mm.pop();
+        mm.popPointer();
+        mm.popPointer();
     }
 
 }

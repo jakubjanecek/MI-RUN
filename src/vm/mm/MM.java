@@ -1,11 +1,14 @@
 package vm.mm;
 
+import vm.Bytecode;
 import vm.Util;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import static vm.Util.bytes2int;
 
 public class MM {
 
@@ -31,15 +34,12 @@ public class MM {
     private int firstFreeHeapByte = 0;
 
     private byte[] stack;
-    private int firstFreeStackByte = 0;
+    private int stackPointer = 0;
+    private int basePointer = NULL.address;
 
     private List<Method> methods;
 
     private CodePointer programCounter = new CodePointer(0, this);
-
-    private int stackPointer = 0;
-
-    private int basePointer = 0;
 
     public MM(int codeSize, int heapSize, int stackSize) {
         code = new byte[codeSize];
@@ -72,25 +72,66 @@ public class MM {
         clear(heap, obj.address, objectSize);
     }
 
-    // TODO
-    public void newFrame() {
-
+    public void newFrame(int numOfLocals) {
+        int caller = basePointer;
+        basePointer = stackPointer;
+        pushInt(caller);
+        pushInt(programCounter.address);
+        for (int i = 0; i < numOfLocals; i++) {
+            pushPointer(NULL);
+        }
     }
 
-    public void push(Pointer object) {
-        if (firstFreeStackByte + WORD_SIZE <= stack.length) {
-            storePointer(stack, firstFreeStackByte, object);
-            firstFreeStackByte += WORD_SIZE;
+    public CodePointer discardFrame() {
+        int currentBasePointer = basePointer;
+        int caller = bytes2int(Arrays.copyOfRange(stack, basePointer, basePointer + WORD_SIZE));
+        int returnAddress = bytes2int(Arrays.copyOfRange(stack, basePointer + WORD_SIZE, basePointer + (2 * WORD_SIZE)));
+
+        basePointer = caller;
+        stackPointer = currentBasePointer;
+
+        if (caller == NULL.address) {
+            // end of the program
+            return null;
+        }
+
+        return new CodePointer(returnAddress, this);
+    }
+
+    public void pushInt(int num) {
+        if (this.stackPointer + WORD_SIZE <= stack.length) {
+            storeInt(stack, stackPointer, num);
+            this.stackPointer += WORD_SIZE;
         } else {
             throw new RuntimeException("Stack overflow!");
         }
     }
 
-    public Pointer pop() {
-        if (firstFreeStackByte - WORD_SIZE >= 0) {
-            firstFreeStackByte -= WORD_SIZE;
-            Pointer p = retrievePointer(stack, firstFreeStackByte);
-            clear(stack, firstFreeStackByte, WORD_SIZE);
+    public void pushPointer(Pointer object) {
+        if (this.stackPointer + WORD_SIZE <= stack.length) {
+            storePointer(stack, stackPointer, object);
+            this.stackPointer += WORD_SIZE;
+        } else {
+            throw new RuntimeException("Stack overflow!");
+        }
+    }
+
+    public int popInt() {
+        if (this.stackPointer - WORD_SIZE >= 0) {
+            this.stackPointer -= WORD_SIZE;
+            int i = retrieveInt(stack, this.stackPointer);
+            clear(stack, this.stackPointer, WORD_SIZE);
+            return i;
+        } else {
+            throw new RuntimeException("Nothing to pop from stack!");
+        }
+    }
+
+    public Pointer popPointer() {
+        if (this.stackPointer - WORD_SIZE >= 0) {
+            this.stackPointer -= WORD_SIZE;
+            Pointer p = retrievePointer(stack, this.stackPointer);
+            clear(stack, this.stackPointer, WORD_SIZE);
             return p;
         } else {
             throw new RuntimeException("Nothing to pop from stack!");
@@ -121,6 +162,10 @@ public class MM {
 
     public void setPC(CodePointer pc) {
         programCounter = pc;
+    }
+
+    public CodePointer getPC() {
+        return programCounter;
     }
 
     public byte getByteFromBC() {
@@ -186,6 +231,11 @@ public class MM {
         pc(WORD_SIZE);
     }
 
+    private int frameSize(int args, int locals) {
+        // caller + args + locals
+        return WORD_SIZE + (WORD_SIZE * args) + (WORD_SIZE * locals);
+    }
+
     public void dump(PrintWriter out) {
         int numOfBytesOnRow = 8;
 
@@ -238,6 +288,33 @@ public class MM {
 
             out.println();
         }
+    }
+
+    private void dumpBytecode(byte[] arr, PrintWriter out) {
+        int emptyCount = 0;
+
+        int i = 0;
+        while (i < arr.length && emptyCount <= 20) {
+            out.print(String.format("%04d: ", i));
+
+            for (int j = i; j < arr.length; j++) {
+                out.print(String.format("%02X ", new Byte(arr[j])));
+                String instr = Bytecode.bytes2strings.get(new Byte(arr[j]));
+                out.println(instr);
+
+                if (arr[j] == FREE_MARKER) {
+                    emptyCount++;
+                } else {
+                    emptyCount = 0;
+                }
+//                int numOfArgs = Bytecode.strings2bytecodes.get(instr).numOfArguments;
+//                for (int k = 0; k < numOfArgs; k += WORD_SIZE) {
+//                    out.print(String.format("", bytes2int()));
+//                }
+            }
+        }
+
+        out.println();
     }
 
     public class Obj {

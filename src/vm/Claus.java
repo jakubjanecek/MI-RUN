@@ -33,14 +33,21 @@ public class Claus {
         bootstrap();
     }
 
-    public void bootstrap() {
+    public void run(CodePointer entryPoint) {
+        mm.newFrame(0);
+        mm.setPC(entryPoint);
+        interpret();
+    }
+
+    private void bootstrap() {
         metaclass = newClazz(str2bytes("Metaclass"));
         classOfObject = newClazz(str2bytes("Object"), mm.NULL);
         metaclass.$c().metaclass(metaclass);
         metaclass.$c().superclass(classOfObject);
 
-        CodePointer methodPointer = mm.storeCode(new byte[1]);
-        Pointer methodDictionaryOfObject = newMethodDictionary(asList(new Method[]{newMethod("getObjectID", methodPointer)}));
+        byte[] methodBytecode = new byte[]{Bytecode.strings2bytecodes.get("return").code};
+        CodePointer methodPointer = mm.storeCode(methodBytecode);
+        Pointer methodDictionaryOfObject = newMethodDictionary(asList(new Integer[]{newMethod("getObjectID", methodPointer, 0)}));
         classOfObject.$c().methods(methodDictionaryOfObject);
 
         classOfArray = newClazz(str2bytes("Array"));
@@ -95,15 +102,19 @@ public class Claus {
         return newClass;
     }
 
-    public Method newMethod(String selector, CodePointer bytecode) {
-        return new Method(selector, bytecode);
+    /**
+     * @return method index
+     */
+    public int newMethod(String selector, CodePointer bytecode, int numOfLocals) {
+        Method m = new Method(selector, bytecode, numOfLocals);
+        return mm.addMethod(m);
     }
 
-    public Pointer newMethodDictionary(List<Method> methods) {
+    public Pointer newMethodDictionary(List<Integer> methods) {
         Pointer methodDictionary = newObject(classOfObject, methods.size());
 
         for (int i = 0; i < methods.size(); i++) {
-            methodDictionary.$p().field(i, newInteger(int2bytes(mm.addMethod(methods.get(i)))));
+            methodDictionary.$p().field(i, newInteger(int2bytes(methods.get(i))));
         }
 
         return methodDictionary;
@@ -144,17 +155,44 @@ public class Claus {
     }
 
     private void interpret() {
-        byte instruction = mm.getByteFromBC();
-        switch (instruction) {
-            case 0x01:
-                int syscall = mm.getIntFromBC();
-                Syscalls.ints2calls.get(syscall).call();
-                break;
-            case 0x00:
-                // NOP
-                break;
-            default:
-                throw new RuntimeException("Unknown instruction.");
+        boolean interpret = true;
+        while (interpret) {
+            byte instruction = mm.getByteFromBC();
+            switch (instruction) {
+                // syscall
+                case 0x01:
+                    int syscall = mm.getIntFromBC();
+                    Syscalls.ints2calls.get(syscall).call();
+                    break;
+                // call
+                case 0x02:
+                    String methodSelector = bytes2str(mm.getPointerFromBC().$b().bytes());
+                    callMethod(mm.popPointer(), methodSelector);
+                    break;
+                // return
+                case 0x03:
+                    CodePointer jumpAddress = mm.discardFrame();
+                    if (jumpAddress == null) {
+                        interpret = false;
+                    } else {
+                        jump(jumpAddress);
+                    }
+                    break;
+                // push-ref
+                case 0x04:
+                    mm.pushPointer(mm.getPointerFromBC());
+                    break;
+                // pop-ref
+                case 0x05:
+                    // TODO implement pop-ref instruction
+                    break;
+                // NOP = no operation
+                case 0x00:
+                    interpret = false;
+                    break;
+                default:
+                    throw new RuntimeException("Unknown instruction.");
+            }
         }
     }
 
@@ -163,8 +201,9 @@ public class Claus {
         Method method = lookupMethod(objectClass, selector);
 
         if (method != null) {
-            mm.setPC(method.bytecodePointer());
-            interpret();
+            mm.newFrame(method.numOfLocals());
+            jump(method.bytecodePointer());
+//            interpret();
         } else {
             throw new RuntimeException("Method '" + selector + "' not found in class '" + bytes2str(objectClass.$c().name().$b().bytes()) + "'");
         }
@@ -198,11 +237,15 @@ public class Claus {
         return null;
     }
 
+    private void jump(CodePointer where) {
+        mm.setPC(where);
+    }
+
     private void syscalls() {
         Syscalls.ints2calls.put(1, new Syscall("print") {
             @Override
             public void call() {
-                System.out.println(bytes2str(mm.pop().$b().bytes()));
+                System.out.println(bytes2str(mm.popPointer().$b().bytes()));
             }
         });
 
