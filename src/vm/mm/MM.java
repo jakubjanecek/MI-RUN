@@ -9,6 +9,8 @@ import java.util.List;
 
 public class MM {
 
+    public static final int INSTR_SIZE = 1;
+
     public static final int WORD_SIZE = 4;
 
     public static final int REF_SIZE = WORD_SIZE;
@@ -89,8 +91,8 @@ public class MM {
         }
     }
 
-    public CodePointer storeMethod(byte[] bytecode) {
-        CodePointer p = null;
+    public CodePointer storeCode(byte[] bytecode) {
+        CodePointer p;
         if (firstFreeCodeByte + bytecode.length <= code.length) {
             p = new CodePointer(firstFreeCodeByte, this);
             System.arraycopy(bytecode, 0, code, firstFreeCodeByte, bytecode.length);
@@ -115,8 +117,12 @@ public class MM {
         return code[pointer.address];
     }
 
-    public int getPointerFromBC(CodePointer pointer) {
+    public int getIntFromBC(CodePointer pointer) {
         return retrieveInt(code, pointer.address);
+    }
+
+    public Pointer getPointerFromBC(CodePointer pointer) {
+        return retrievePointer(code, pointer.address);
     }
 
     public int pointerIndexedObjectSize(int size) {

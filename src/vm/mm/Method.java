@@ -15,7 +15,7 @@ public class Method {
         return selector;
     }
 
-    public CodePointer bytecode() {
+    public CodePointer bytecodePointer() {
         return bytecode;
     }
 

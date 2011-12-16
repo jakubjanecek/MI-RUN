@@ -16,8 +16,14 @@ public class CodePointer {
         this.mm = mm;
     }
 
-    public CodePointer arith(int diff) {
-        return new CodePointer(address + diff, mm);
+    /**
+     * Emulates pointer arithmetic as in C.
+     *
+     * @param number of bytes to be added or subtracted from this CodePointer
+     * @return pointer to a new address byte
+     */
+    public CodePointer arith(int number) {
+        return new CodePointer(address + number, mm);
     }
 
     @Override
