@@ -15,6 +15,16 @@ public class Bytecode {
             put("return", new BytecodeInstruction(int2Byte(0x03), 0));
             put("push-ref", new BytecodeInstruction(int2Byte(0x04), 1));
             put("pop-ref", new BytecodeInstruction(int2Byte(0x05), 0));
+
+            // OTHER INSTRUCTIONS WE WILL POSSIBLY NEED
+            // push-int, pop-int
+            // push-local, pop-local  (with index to local variables in the current stack frame)
+            // new
+            // get-field, set-field
+            // add, sub, mul, div, mod
+            // return-top
+            // conditional jumps
+            // labels??
         }
     };
 

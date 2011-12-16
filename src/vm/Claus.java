@@ -203,7 +203,6 @@ public class Claus {
         if (method != null) {
             mm.newFrame(method.numOfLocals());
             jump(method.bytecodePointer());
-//            interpret();
         } else {
             throw new RuntimeException("Method '" + selector + "' not found in class '" + bytes2str(objectClass.$c().name().$b().bytes()) + "'");
         }
@@ -241,6 +240,13 @@ public class Claus {
         mm.setPC(where);
     }
 
+    // OTHER INSTRUCTIONS WE WILL POSSIBLY NEED
+    // open-file
+    // read-char
+    // read-line
+    // write-char
+    // write-line
+    // close-file
     private void syscalls() {
         Syscalls.ints2calls.put(1, new Syscall("print") {
             @Override
