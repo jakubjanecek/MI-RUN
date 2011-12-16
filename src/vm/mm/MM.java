@@ -35,6 +35,12 @@ public class MM {
 
     private List<Method> methods;
 
+    private CodePointer programCounter = new CodePointer(0, this);
+
+    private int stackPointer = 0;
+
+    private int basePointer = 0;
+
     public MM(int codeSize, int heapSize, int stackSize) {
         code = new byte[codeSize];
         heap = new byte[heapSize];
@@ -113,16 +119,26 @@ public class MM {
         return methods.get(index);
     }
 
-    public byte getByteFromBC(CodePointer pointer) {
-        return code[pointer.address];
+    public void setPC(CodePointer pc) {
+        programCounter = pc;
     }
 
-    public int getIntFromBC(CodePointer pointer) {
-        return retrieveInt(code, pointer.address);
+    public byte getByteFromBC() {
+        byte b = code[programCounter.address];
+        pcInstr();
+        return b;
     }
 
-    public Pointer getPointerFromBC(CodePointer pointer) {
-        return retrievePointer(code, pointer.address);
+    public int getIntFromBC() {
+        int i = retrieveInt(code, programCounter.address);
+        pcWord();
+        return i;
+    }
+
+    public Pointer getPointerFromBC() {
+        Pointer p = retrievePointer(code, programCounter.address);
+        pcWord();
+        return p;
     }
 
     public int pointerIndexedObjectSize(int size) {
@@ -156,6 +172,18 @@ public class MM {
 
     private int retrieveInt(byte[] from, int address) {
         return Util.bytes2int(Arrays.copyOfRange(from, address, address + 4));
+    }
+
+    private void pc(int number) {
+        programCounter = programCounter.arith(number);
+    }
+
+    private void pcInstr() {
+        pc(INSTR_SIZE);
+    }
+
+    private void pcWord() {
+        pc(WORD_SIZE);
     }
 
     public void dump(PrintWriter out) {

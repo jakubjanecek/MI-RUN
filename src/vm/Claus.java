@@ -15,15 +15,11 @@ public class Claus {
 
     private Pointer classOfObject;
 
+    private Pointer classOfArray;
+
     private Pointer classOfString;
 
     private Pointer classOfInteger;
-
-    private CodePointer programCounter = new CodePointer(0, mm);
-
-    private int stackPointer = 0;
-
-    private int basePointer = 0;
 
     public static void main(String... args) {
         new Claus(new MM(1024, 1024, 1024));
@@ -47,6 +43,7 @@ public class Claus {
         Pointer methodDictionaryOfObject = newMethodDictionary(asList(new Method[]{newMethod("getObjectID", methodPointer)}));
         classOfObject.$c().methods(methodDictionaryOfObject);
 
+        classOfArray = newClazz(str2bytes("Array"));
         classOfString = newClazz(str2bytes("String"));
         classOfInteger = newClazz(str2bytes("Integer"));
 
@@ -112,6 +109,10 @@ public class Claus {
         return methodDictionary;
     }
 
+    public Pointer newArray(int size) {
+        return newObject(classOfArray, size);
+    }
+
     public Pointer newString(byte[] str) {
         Pointer newString = mm.alloc(mm.byteIndexedObjectSize(str.length));
 
@@ -143,13 +144,11 @@ public class Claus {
     }
 
     private void interpret() {
-        byte instruction = mm.getByteFromBC(programCounter);
-        pcInstr();
+        byte instruction = mm.getByteFromBC();
         switch (instruction) {
             case 0x01:
-                int syscall = mm.getIntFromBC(programCounter);
+                int syscall = mm.getIntFromBC();
                 Syscalls.ints2calls.get(syscall).call();
-                pcWord();
                 break;
             case 0x00:
                 // NOP
@@ -164,7 +163,7 @@ public class Claus {
         Method method = lookupMethod(objectClass, selector);
 
         if (method != null) {
-            programCounter = method.bytecodePointer();
+            mm.setPC(method.bytecodePointer());
             interpret();
         } else {
             throw new RuntimeException("Method '" + selector + "' not found in class '" + bytes2str(objectClass.$c().name().$b().bytes()) + "'");
@@ -197,18 +196,6 @@ public class Claus {
         }
 
         return null;
-    }
-
-    private void pc(int number) {
-        programCounter = programCounter.arith(number);
-    }
-
-    private void pcInstr() {
-        pc(MM.INSTR_SIZE);
-    }
-
-    private void pcWord() {
-        pc(MM.WORD_SIZE);
     }
 
     private void syscalls() {

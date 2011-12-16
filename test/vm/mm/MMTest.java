@@ -26,13 +26,11 @@ public class MMTest {
         byte[] bytes = new byte[]{(byte) 0x01, (byte) 0x02, (byte) 0x03, (byte) 0x04, (byte) 0x05, (byte) 0x06};
         CodePointer p = mm.storeCode(bytes);
 
-        assertEquals(bytes[0], mm.getByteFromBC(p));
-        p = p.arith(1);
-        assertEquals(bytes[1], mm.getByteFromBC(p));
+        mm.setPC(p);
+        assertEquals(bytes[0], mm.getByteFromBC());
         byte[] intBytes = Arrays.copyOfRange(bytes, 1, 5);
-        assertEquals(Util.bytes2int(intBytes), mm.getIntFromBC(p));
-        p = p.arith(MM.WORD_SIZE);
-        assertEquals(bytes[5], mm.getByteFromBC(p));
+        assertEquals(Util.bytes2int(intBytes), mm.getIntFromBC());
+        assertEquals(bytes[5], mm.getByteFromBC());
     }
 
     @Test
