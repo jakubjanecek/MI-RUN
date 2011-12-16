@@ -184,7 +184,7 @@ public class Claus {
                     break;
                 // pop-ref
                 case 0x05:
-                    // TODO implement pop-ref instruction
+                    mm.popPointer();
                     break;
                 // NOP = no operation
                 case 0x00:
