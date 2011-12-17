@@ -1,0 +1,110 @@
+class Knapsack {
+
+  var n
+  var capacity
+  var weights
+  var prices
+
+  entry-point {
+    var knapsack = new Knapsack
+    knapsack.init()
+    knapsack.run(args)
+  }
+  
+  def init() : Nothing = {
+    n = 10
+    capacity = 100
+    weights = new Integer[10]
+    prices = new Integer[10]
+  }
+
+  def run(args : String[]) : Nothing = {
+    load(args[0])
+    solveKnapsackProblem()
+    save("test")
+  }
+
+  def load(filename : String) : Nothing = {
+    var file = new TextFileReader
+    file.setFilename(filename)
+    var line = file.readLine()
+    file.close()
+  }
+
+  def save(filename : String, line : String) : Nothing = {
+    var file = new TextFileWriter
+    file.setFilename(filename)
+    file.writeLine(line)
+    file.close()
+  }
+  
+  def numberToBinary(number : Integer) : Boolean[] = {
+    var binary = new Boolean[n]
+    if (number == 0) {
+      return binary
+    }
+    var rest = false
+    var div = number
+    var i = 0
+    while (div > 0) {
+      if ((div % 2) == 1) {
+        rest = true
+      }
+      else {
+        rest = false
+      }
+      div = (div / 2)
+      binary[(n - i - 1)] = rest
+      i = (i + 1)
+    }
+    return binary
+  }
+  
+  def binaryToString(binary : Boolean[]) : String = {
+    var string = ""
+    var binLength = binary.length()
+    for (i <- 0 .. (binLength - 1)) {
+      if (true == binary[i]) {
+        string = string.append(" 1")
+      } else {
+        string = string.append(" 0")
+      }
+    }
+    return string
+  }
+  
+  def solveKnapsackProblem() : Nothing = {
+    var p = (2 ^ n)
+    var bestCombination = new Boolean[n]
+    var maxWeight = 0
+    var maxPrice = 0
+    for (i <- 0 .. (p - 1)) {
+      var actualWeight = 0
+      var actualPrice = 0
+      var actualCombination = numberToBinary(i)
+      for (j <- 0 .. (n - 1)) {
+        if (actualCombination[j] == true) {
+          var weight = weights[j]
+          var price = prices[j]
+          if ((actualWeight + weight) < capacity) {
+            actualWeight = (actualWeight + weight)
+            actualPrice = (actualPrice + price)
+          }
+        }
+      }
+      if (actualPrice > maxPrice) {
+        bestCombination = actualCombination
+        maxWeight = actualWeight
+        maxPrice = actualPrice
+      }
+    }
+    var result = "kombinace:"
+    result.append(binaryToString(bestCombination))
+    result.append(" | vaha: ")
+    result.append(maxWeight)
+    result.append(" | cena: ")
+    result.append(maxPrice)
+    println(result)
+  }
+  
+}
