@@ -9,7 +9,7 @@ import java.util.List;
 import static java.util.Arrays.asList;
 import static vm.Util.*;
 
-public class Claus {
+public class ClausVM {
 
     private MM mm;
 
@@ -25,15 +25,19 @@ public class Claus {
 
     private Pointer classOfInteger;
 
+    private List<Pointer> classes;
+
     private List<FileInputStream> inputHandles;
     private List<FileOutputStream> outputHandles;
 
     public static void main(String... args) {
-        new Claus(new MM(1024, 1024, 1024));
+        new ClausVM(new MM(1024, 1024, 1024));
     }
 
-    public Claus(MM mm) {
+    public ClausVM(MM mm) {
         this.mm = mm;
+
+        this.classes = new ArrayList<Pointer>();
 
         this.interpreter = new BytecodeInterpreter(this, mm);
 
@@ -73,7 +77,12 @@ public class Claus {
         classOfString = library.createStringClass();
         classOfArray = library.createArrayClass();
 
-        // TODO TextFileReader and TextFileWriter
+        classes.addAll(asList(new Pointer[]{
+                metaclass, classOfObject, classOfInteger, classOfString, classOfArray
+        }));
+
+        classes.add(library.createTextFileReaderClass());
+        classes.add(library.createTextFileWriterClass());
     }
 
     public Pointer newObject(Pointer clazz, int size) {
@@ -129,6 +138,16 @@ public class Claus {
         newClass.$c().methods(mm.NULL);
 
         return newClass;
+    }
+
+    public Pointer getClazz(String name) {
+        for (Pointer clazz : classes) {
+            if (bytes2str(clazz.$c().name().$b().bytes()).equals(name)) {
+                return clazz;
+            }
+        }
+
+        return null;
     }
 
     /**

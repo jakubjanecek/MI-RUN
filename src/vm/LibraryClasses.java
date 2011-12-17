@@ -9,11 +9,11 @@ import static vm.Util.str2bytes;
 
 public class LibraryClasses {
 
-    private Claus vm;
+    private ClausVM vm;
 
     private MM mm;
 
-    public LibraryClasses(Claus vm, MM mm) {
+    public LibraryClasses(ClausVM vm, MM mm) {
         this.vm = vm;
         this.mm = mm;
     }
@@ -131,6 +131,62 @@ public class LibraryClasses {
                 vm.newMethod("length", lengthMethod, 0),
                 vm.newMethod("get", getMethod, 0),
                 vm.newMethod("set", setMethod, 0),
+        }));
+        clazz.$c().methods(methodDictionaryOfObject);
+
+        return clazz;
+    }
+
+    public Pointer createTextFileReaderClass() {
+        Pointer clazz = vm.newClazz(str2bytes("TextFileReader"), 1);
+
+        String[] openBC = new String[]{
+                "pop-arg 1",
+                "syscall " + Syscalls.calls2ints.get("open-file-r"),
+                "push-local 0",
+                "pop-arg 0",
+                "push-int 0",
+                "pop-local 0",
+                "set-field",
+                "return"
+        };
+        CodePointer openMethod = mm.storeCode(Util.translateBytecode(openBC));
+
+//        "pop-local 0",
+//                        "push-int 0",
+//                        "get-field",
+//                        "syscall " + Syscalls.calls2ints.get("print-int"),
+        String[] closeBC = new String[]{
+                "pop-arg 0",
+                "push-int 0",
+                "get-field",
+                "syscall " + Syscalls.calls2ints.get("close-file-r"),
+                "return"
+        };
+        CodePointer closeMethod = mm.storeCode(Util.translateBytecode(closeBC));
+
+        Pointer methodDictionaryOfObject = vm.newMethodDictionary(asList(new Integer[]{
+                vm.newMethod("open", openMethod, 1),
+                vm.newMethod("close", closeMethod, 0),
+//                vm.newMethod("readLine", lengthMethod, 0)
+        }));
+        clazz.$c().methods(methodDictionaryOfObject);
+
+        return clazz;
+    }
+
+    public Pointer createTextFileWriterClass() {
+        Pointer clazz = vm.newClazz(str2bytes("TextFileWriter"));
+
+        String[] lengthBC = new String[]{
+                "pop-arg 0",
+                "syscall " + Syscalls.calls2ints.get("arr-length"),
+                "return-top"
+        };
+        CodePointer lengthMethod = mm.storeCode(Util.translateBytecode(lengthBC));
+
+        Pointer methodDictionaryOfObject = vm.newMethodDictionary(asList(new Integer[]{
+                vm.newMethod("length", lengthMethod, 0),
         }));
         clazz.$c().methods(methodDictionaryOfObject);
 

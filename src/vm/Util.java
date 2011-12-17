@@ -62,4 +62,11 @@ public class Util {
         }
         return out2;
     }
+
+    public static void writeOutBC(String[] bc) {
+        for (String l : bc) {
+            System.out.println(l);
+        }
+    }
+
 }

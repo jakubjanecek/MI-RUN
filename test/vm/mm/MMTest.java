@@ -2,7 +2,7 @@ package vm.mm;
 
 import org.junit.Before;
 import org.junit.Test;
-import vm.Claus;
+import vm.ClausVM;
 import vm.Util;
 
 import java.util.Arrays;
@@ -14,12 +14,12 @@ import static vm.Util.*;
 public class MMTest {
 
     private MM mm;
-    private Claus vm;
+    private ClausVM vm;
 
     @Before
     public void setup() {
         mm = new MM(1024, 1024, 1024);
-        vm = new Claus(mm);
+        vm = new ClausVM(mm);
     }
 
     @Test
@@ -48,7 +48,7 @@ public class MMTest {
     @Test(expected = RuntimeException.class)
     public void stackOverflow() {
         MM mm = new MM(1024, 1024, 2);
-        Claus vm = new Claus(mm);
+        ClausVM vm = new ClausVM(mm);
 
         mm.pushPointer(vm.newInteger(int2bytes(1)));
         mm.pushPointer(vm.newString(str2bytes("two")));

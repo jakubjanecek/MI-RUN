@@ -10,7 +10,7 @@ import vm.mm.*;
 
 class Claus {
   public static MM mem;
-  public static vm.Claus vim;
+  public static vm.ClausVM vim;
   public Pointer inputClass;
   
   public static void main(String[] args) {
@@ -18,7 +18,7 @@ class Claus {
       // VM init
       int size = 1024;
       mem = new MM(size, size, size);
-      vim = new vm.Claus(mem);
+      vim = new vm.ClausVM(mem);
       
       // Input parsing
       Claus parser = new Claus(System.in);

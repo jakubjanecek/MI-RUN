@@ -13,17 +13,17 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static vm.Util.*;
 
-public class ClausTest {
+public class ClausVMTest {
 
     private MM mm;
 
-    private Claus vm;
+    private ClausVM vm;
 
     @Before
     public void setup() {
         int size = 1024;
         mm = new MM(size, size, size);
-        vm = new Claus(mm);
+        vm = new ClausVM(mm);
     }
 
     @Test
@@ -221,6 +221,26 @@ public class ClausTest {
                 "pop-local 0",
                 "call " + mm.addConstant("get"),
                 "syscall " + Syscalls.calls2ints.get("print-int"),
+
+                "return"
+        };
+
+        CodePointer entryPointPointer = mm.storeCode(Util.translateBytecode(entryPoint));
+
+        vm.run(entryPointPointer, 1);
+    }
+
+    @Test
+    public void testTextFileReader() {
+        String[] entryPoint = new String[]{
+                "new " + vm.getClazz("TextFileReader").address,
+                "push-local 0",
+                "push-ref " + vm.newString(str2bytes("/Users/platinix/test.txt")).address,
+                "pop-local 0",
+                "call " + mm.addConstant("open"),
+
+                "pop-local 0",
+                "call " + mm.addConstant("close"),
 
                 "return"
         };

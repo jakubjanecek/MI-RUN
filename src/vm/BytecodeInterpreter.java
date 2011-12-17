@@ -8,11 +8,11 @@ import static vm.Util.*;
 
 public class BytecodeInterpreter {
 
-    private Claus vm;
+    private ClausVM vm;
 
     private MM mm;
 
-    public BytecodeInterpreter(Claus vm, MM mm) {
+    public BytecodeInterpreter(ClausVM vm, MM mm) {
         this.vm = vm;
         this.mm = mm;
     }
