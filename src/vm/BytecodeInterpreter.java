@@ -103,6 +103,7 @@ public class BytecodeInterpreter {
                     Pointer operand2 = mm.popPointer();
                     Pointer operand1 = mm.popPointer();
                     int sum = bytes2int(operand1.$b().bytes()) + bytes2int(operand2.$b().bytes());
+
                     mm.pushPointer(vm.newInteger(int2bytes(sum)));
                     break;
                 // sub-int

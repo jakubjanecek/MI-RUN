@@ -21,7 +21,7 @@ public class ClausVMTest {
 
     @Before
     public void setup() {
-        int size = 2048;
+        int size = 4096;
         mm = new MM(size, size, size);
         vm = new ClausVM(mm);
     }
@@ -430,11 +430,30 @@ public class ClausVMTest {
                 "new-str " + mm.addConstant("jumped"),
                 "syscall " + Syscalls.calls2ints.get("print"),
 
+                // jump back (for example in while cycle)
+                // int i = 0
+                // while (i < 20) {
+                //   i = i + 1
+                //   print(i)
+                // }
+                "new-int 0",
+                "push-local 0",
+                "pop-local 0",
+                "new-int 20",
+                "jmp-ge-int " + (7 * MM.INSTR_SIZE + 7 * MM.WORD_SIZE),
+                "pop-local 0",
+                "syscall " + Syscalls.calls2ints.get("print-int"),
+                "pop-local 0",
+                "new-int 1",
+                "call " + mm.addConstant("add"),
+                "push-local 0",
+                "jmp -" + (10 * MM.INSTR_SIZE + 10 * MM.WORD_SIZE),
+
                 "return"
         };
 
         CodePointer entryPointPointer = mm.storeCode(Util.translateBytecode(entryPoint));
 
-        vm.run(entryPointPointer, 0);
+        vm.run(entryPointPointer, 1);
     }
 }
