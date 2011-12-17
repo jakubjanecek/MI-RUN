@@ -1,1 +1,4 @@
 bin
+out
+git.key
+git.key.pub
