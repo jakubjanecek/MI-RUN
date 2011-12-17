@@ -32,7 +32,7 @@ public class Bytecode {
             put("pop-arg", new BytecodeInstruction(int2Byte(0x14), 1));
             put("set-bytes", new BytecodeInstruction(int2Byte(0x15), 1));
             put("new-int", new BytecodeInstruction(int2Byte(0x16), 1));
-            put("new-str", new BytecodeInstruction(int2Byte(0x17), 2));
+            put("new-str", new BytecodeInstruction(int2Byte(0x17), 1));
             put("new-arr", new BytecodeInstruction(int2Byte(0x18), 1));
             // conditional jumps
             // labels??

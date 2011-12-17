@@ -48,6 +48,7 @@ public class MM {
         heap = new byte[heapSize];
         stack = new byte[stackSize];
         methods = new ArrayList<Method>();
+        constantPool = new ArrayList<Object>();
     }
 
     public Pointer alloc(int size) {
@@ -215,6 +216,10 @@ public class MM {
 
     public Object constant(int index) {
         return constantPool.get(index);
+    }
+
+    public int constantIndex(Object o) {
+        return constantPool.indexOf(o);
     }
 
     public int pointerIndexedObjectSize(int size) {
