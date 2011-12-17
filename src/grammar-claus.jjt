@@ -112,7 +112,7 @@ void EntryPoint():
   {
     //Pointer objectObj = vim.newObject(inputClass, vm.Util.bytes2int(inputClass.$c().objectSize().$b().bytes()));
     //objectObj.$p().field(0, vim.newString(vm.Util.str2bytes("test1")));
-    
+
     //byte[] carRef = vm.Util.int2bytes(objectObj.address);
     String[] epCode = new String[]{
             "new-int 10",

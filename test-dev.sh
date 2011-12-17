@@ -3,7 +3,7 @@
 cd out
 
 echo "Knapsack03.claus"
-java vm.ClausVM < ../test/Knapsack03.claus
+java Claus < ../test/Knapsack03.claus
 echo ""
 
 cd ..
