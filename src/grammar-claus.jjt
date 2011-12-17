@@ -1,0 +1,278 @@
+options {
+  // DEBUG_PARSER = true;
+  STATIC = false;
+  MULTI = true;
+}
+
+PARSER_BEGIN(Claus)
+
+import src.vm.mm.CodePointer;
+import src.vm.mm.MM;
+import src.vm.mm.Pointer;
+
+class Claus {
+  public static void main(String[] args) throws ParseException, TokenMgrError {
+    Claus parser = new Claus(System.in);
+    System.out.println(parser.Class());
+    System.out.println("SUCCESS");
+  }
+}
+
+PARSER_END(Claus)
+
+SKIP: {" " | "\n" | "\r" | "\t"}
+
+TOKEN: {
+  <CLASS_KW: "class">
+| <ENTRYPOINT_KW: "entry-point">
+| <DEF_KW: "def">
+| <VAR_KW: "var">
+| <RETURN_KW: "return">
+| <NEW_KW: "new">
+| <FOR_KW: "for">
+| <FOR_ARROW_KW: "<-">
+| <WHILE_KW: "while">
+| <IF_KW: "if">
+| <ELSE_KW: "else">
+| <TRUE_KW: "true">
+| <FALSE_KW: "false">
+| <LBRACE: "{">
+| <RBRACE: "}">
+| <LPAREN: "(">
+| <RPAREN: ")">
+| <LBRACKET: "[">
+| <RBRACKET: "]">
+| <COLON: ":">
+| <SEMI: ";">
+| <COMMA: ",">
+| <PERIOD: ".">
+| <DECLARATION_EQUALS: "=">
+| <PLUS: "+">
+| <MINUS: "-">
+| <MULTIPLICATION: "*">
+| <DIVISION: "/">
+| <MODULO: "%">
+| <POWER: "^">
+| <EQUALS: "==">
+| <NOT_EQUALS: "!=">
+| <LT: "<">
+| <GT: ">">
+| <ID: ["a"-"z","A"-"Z"](["a"-"z","A"-"Z","0"-"9"])*>
+| <STRING: "\""(~["\""])*"\"">
+| <INTEGER: (["0"-"9"])+>
+}
+
+ASTClass Class():
+{
+  Token className;
+}
+{
+  <CLASS_KW> className=<ID> <LBRACE> ClassBody() <RBRACE>
+  <EOF>
+  {
+    jjtThis.value = className.image;
+    return jjtThis;
+  }
+}
+
+void ClassBody():
+{}
+{
+  (Declaration())*
+}
+
+void Declaration():
+{}
+{
+  VariableDeclaration() | MethodDeclaration() | EntryPoint()
+}
+
+void EntryPoint():
+{}
+{
+  <ENTRYPOINT_KW> <LBRACE> MethodBody() <RBRACE>
+}
+
+void MethodDeclaration():
+{}
+{
+  <DEF_KW> <ID> <LPAREN> MethodArgumentDeclarationList() <RPAREN> TypeSpecifier() <DECLARATION_EQUALS> <LBRACE>
+    MethodBody()
+  <RBRACE>
+}
+
+void MethodArgumentDeclarationList():
+{}
+{
+   [MethodArgumentDeclaration() MethodArgumentDeclarationListExt()]
+}
+
+void MethodArgumentDeclarationListExt():
+{}
+{
+  [<COMMA> MethodArgumentDeclarationList()]
+}
+
+void MethodArgumentDeclaration():
+{}
+{
+  <ID> TypeSpecifier()
+}
+
+void MethodBody():
+{}
+{
+  Block()
+}
+
+void Block():
+{}
+{
+  (Statement())*
+}
+
+void VariableDeclaration():
+{}
+{
+  <VAR_KW> <ID> [TypeSpecifier()] <DECLARATION_EQUALS> Expression()
+}
+
+void TypeSpecifier():
+{}
+{
+  <COLON> <ID> [<LBRACKET> <RBRACKET>]
+}
+
+void Statement():
+{}
+{
+  LOOKAHEAD(2)
+  MethodCall()
+| VariableDeclaration()
+| Assignment()
+| Return()
+| If()
+| While()
+| For()
+}
+
+void Expression():
+{}
+{
+  LOOKAHEAD(2)
+  MathExpression()
+| Instantiation()
+| SimpleValue()
+}
+
+void MethodCall():
+{}
+{
+  LOOKAHEAD(2)
+  <ID> <PERIOD> <ID> <LPAREN> [MethodArgumentList()] <RPAREN>
+| <ID> <LPAREN> [MethodArgumentList()] <RPAREN>
+}
+
+void MethodArgumentList():
+{}
+{
+  Expression() (<COMMA> Expression())*
+}
+
+void Instantiation():
+{}
+{
+  <NEW_KW> <ID> ArrayIndexing()
+}
+
+void Assignment():
+{}
+{
+  <ID> ArrayIndexing() <DECLARATION_EQUALS> Expression()
+}
+
+void Return():
+{}
+{
+  <RETURN_KW> Expression()
+}
+
+void If():
+{}
+{
+  <IF_KW> <LPAREN> Condition() <RPAREN>
+    <LBRACE> Block() <RBRACE>
+    [<ELSE_KW> <LBRACE> Block() <RBRACE>]
+}
+
+void While():
+{}
+{
+  <WHILE_KW> <LPAREN> Condition() <RPAREN> <LBRACE> Block() <RBRACE>
+}
+
+void For():
+{}
+{
+  <FOR_KW> <LPAREN> ForDeclaration() <RPAREN> <LBRACE> Block() <RBRACE>
+}
+
+void ForDeclaration():
+{}
+{
+  <ID> <FOR_ARROW_KW> Expression() <PERIOD> <PERIOD> Expression()
+}
+
+void Condition():
+{}
+{
+  Expression() (<EQUALS> | <NOT_EQUALS> | <LT> | <GT>) Expression()
+}
+
+void SimpleValue():
+{}
+{
+  LOOKAHEAD(2)
+  MethodCall()
+| <ID> ArrayIndexing()
+| <INTEGER>
+| <TRUE_KW>
+| <FALSE_KW>
+| <STRING>
+}
+
+void ArrayIndexing():
+{}
+{
+  [<LBRACKET> Expression() <RBRACKET>]
+}
+
+void MathExpression():
+{}
+{
+  <LPAREN> Term() MathExpressionExt() <RPAREN>
+}
+
+void MathExpressionExt():
+{}
+{
+  [(<PLUS> | <MINUS>) Term() MathExpressionExt()]
+}
+
+void Term():
+{}
+{
+  Factor() TermExt()
+}
+
+void TermExt():
+{}
+{
+  [(<MULTIPLICATION> | <DIVISION> | <MODULO> | <POWER>) Factor() TermExt()]
+}
+
+void Factor():
+{}
+{
+  <INTEGER> | <ID> | MathExpression()
+}
