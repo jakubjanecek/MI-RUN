@@ -1,12 +1,16 @@
 class FirstTest {
 
   entry-point {
+    println("Main - zacatek.")
     var ft = new FirstTest
     ft.run()
+    println("Main - konec.")
   }
 
   def run() : Nothing = {
+    println("Run - zacatek.")
     println("Oukeeej... :)")
+    println("Run - konec.")
   }
   
 }

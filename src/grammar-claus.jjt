@@ -23,7 +23,7 @@ class Claus {
       // Input parsing
       Claus parser = new Claus(System.in);
       System.out.println(parser.Class());
-      System.out.println("SUCCESS");
+      System.out.println("Parsing result: OK.");
     } catch (ParseException pe) {
       System.err.println("Parse exception occured.");
     } catch (TokenMgrError tme) {
@@ -86,8 +86,9 @@ ASTClass Class():
   <CLASS_KW> className=<ID> <LBRACE> ClassBody() <RBRACE>
   <EOF>
   {
-    inputClass = vim.newClazz(vm.Util.str2bytes(className.image), 1);
-    
+    // VM
+    inputClass = vim.newClazz(vm.Util.str2bytes(className.image), 0);
+    // JJTree
     jjtThis.value = className.image;
     return jjtThis;
   }
@@ -105,34 +106,30 @@ void Declaration():
   VariableDeclaration() | MethodDeclaration() | EntryPoint()
 }
 
+/* Entry-point */
 void EntryPoint():
-{}
 {
-  <ENTRYPOINT_KW> <LBRACE> MethodBody() <RBRACE>
+  String[] code;
+}
+{
+  <ENTRYPOINT_KW> <LBRACE> code=MethodBody() <RBRACE>
   {
-    //Pointer objectObj = vim.newObject(inputClass, vm.Util.bytes2int(inputClass.$c().objectSize().$b().bytes()));
-    //objectObj.$p().field(0, vim.newString(vm.Util.str2bytes("test1")));
-
-    //byte[] carRef = vm.Util.int2bytes(objectObj.address);
-    String[] epCode = new String[]{
-            "new-int 10",
-            "new-int 20",
-            "call " + mem.addConstant("add"),
-            "syscall " + vm.Syscalls.calls2ints.get("print-int"),
-            "return"
-    };
-    vim.run(mem.storeCode(vm.Util.translateBytecode(epCode)));
+    vim.run(mem.storeCode(vm.Util.translateBytecode(code)));
   }
 }
 
 void MethodDeclaration():
 {
   Token methodName;
+  String[] code;
 }
 {
   <DEF_KW> methodName=<ID> <LPAREN> MethodArgumentDeclarationList() <RPAREN> TypeSpecifier() <DECLARATION_EQUALS> <LBRACE>
-    MethodBody()
+    code=MethodBody()
   <RBRACE>
+  {
+    // TODO - Zavolat vytvoreni metody.
+  }
 }
 
 void MethodArgumentDeclarationList():
@@ -153,10 +150,21 @@ void MethodArgumentDeclaration():
   <ID> TypeSpecifier()
 }
 
-void MethodBody():
+/* Method body */
+String[] MethodBody():
 {}
 {
   Block()
+  {
+    String[] code = new String[]{
+            "new-int 10",
+            "new-int 20",
+            "call " + mem.addConstant("add"),
+            "syscall " + vm.Syscalls.calls2ints.get("print-int"),
+            "return"
+    };
+    return code;
+  }
 }
 
 void Block():
