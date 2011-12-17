@@ -13,6 +13,8 @@ public class Claus {
 
     private MM mm;
 
+    private BytecodeInterpreter interpreter;
+
     private Pointer metaclass;
 
     private Pointer classOfObject;
@@ -33,15 +35,21 @@ public class Claus {
     public Claus(MM mm) {
         this.mm = mm;
 
+        this.interpreter = new BytecodeInterpreter(this, mm);
+
         syscalls();
 
         bootstrap();
     }
 
     public void run(CodePointer entryPoint) {
-        mm.newFrame(0);
+        run(entryPoint, 0);
+    }
+
+    public void run(CodePointer entryPoint, int numOfLocals) {
+        mm.newFrame(numOfLocals);
         mm.setPC(entryPoint);
-        interpret();
+        interpreter.interpret();
     }
 
     private final void bootstrap() {
@@ -59,10 +67,13 @@ public class Claus {
         Pointer methodDictionaryOfObject = newMethodDictionary(asList(new Integer[]{newMethod("getObjectID", methodPointer, 0)}));
         classOfObject.$c().methods(methodDictionaryOfObject);
 
-        // TODO prepare internal classes such as Array and String
-        classOfInteger = createIntegerClass();
-        classOfString = createStringClass();
-        classOfArray = newClazz(str2bytes("Array"));
+        LibraryClasses library = new LibraryClasses(this, mm);
+
+        classOfInteger = library.createIntegerClass();
+        classOfString = library.createStringClass();
+        classOfArray = library.createArrayClass();
+
+        // TODO TextFileReader and TextFileWriter
     }
 
     public Pointer newObject(Pointer clazz, int size) {
@@ -75,6 +86,10 @@ public class Claus {
         newObject.$().kind(ObjectKind.POINTER_INDEXED);
         newObject.$().size(size);
         newObject.$().clazz(clazz);
+
+        for (int i = 0; i < size; i++) {
+            newObject.$p().field(i, mm.NULL);
+        }
 
         return newObject;
     }
@@ -168,177 +183,21 @@ public class Claus {
         return newInteger;
     }
 
-    private void interpret() {
-        boolean interpret = true;
-        while (interpret) {
-            byte instruction = mm.getByteFromBC();
-            switch (instruction) {
-                // syscall syscall-number
-                case 0x01:
-                    int syscall = mm.getIntFromBC();
-                    Syscalls.ints2calls.get(syscall).call();
-                    break;
-                // call selector-index
-                case 0x02:
-                    String methodSelector = (String) mm.constant(mm.getIntFromBC());
-                    callMethod(mm.popPointer(), methodSelector);
-                    break;
-                // return
-                case 0x03:
-                    CodePointer jumpAddress = mm.discardFrame();
-                    if (jumpAddress == null) {
-                        interpret = false;
-                    } else {
-                        jump(jumpAddress);
-                    }
-                    break;
-                // return-top
-                case 0x04:
-                    Pointer returnValue = mm.popPointer();
-                    jumpAddress = mm.discardFrame();
-                    mm.pushPointer(returnValue);
-                    if (jumpAddress == null) {
-                        interpret = false;
-                    } else {
-                        jump(jumpAddress);
-                    }
-                    break;
-                // new clazz-pointer
-                case 0x05:
-                    Pointer clazz = mm.getPointerFromBC();
-                    Pointer obj = newObject(clazz, bytes2int(clazz.$c().objectSize().$b().bytes()));
-                    mm.pushPointer(obj);
-                    break;
-                // get-field index
-                case 0x06:
-                    int index = mm.getIntFromBC();
-                    obj = mm.popPointer();
-                    mm.pushPointer(obj.$p().field(index));
-                    break;
-                // set-field index pointer
-                case 0x07:
-                    index = mm.getIntFromBC();
-                    Pointer setValue = mm.getPointerFromBC();
-                    obj = mm.popPointer();
-                    obj.$p().field(index, setValue);
-                    break;
-                // push-ref pointer
-                case 0x08:
-                    mm.pushPointer(mm.getPointerFromBC());
-                    break;
-                // pop-ref
-                case 0x09:
-                    mm.popPointer();
-                    break;
-                // push-int number
-                case 0x0A:
-                    mm.pushInt(mm.getIntFromBC());
-                    break;
-                // pop-int
-                case 0xB:
-                    mm.popInt();
-                    break;
-                // push-local index val-pointer
-                case 0x0C:
-                    index = mm.getIntFromBC();
-                    obj = mm.getPointerFromBC();
-                    mm.local(index, obj);
-                    break;
-                // pop-local index
-                case 0x0D:
-                    index = mm.getIntFromBC();
-                    mm.pushPointer(mm.local(index));
-                    break;
-                // add-int
-                case 0x0E:
-                    Pointer operand2 = mm.popPointer();
-                    Pointer operand1 = mm.popPointer();
-                    int sum = bytes2int(operand1.$b().bytes()) + bytes2int(operand2.$b().bytes());
-                    mm.pushPointer(newInteger(int2bytes(sum)));
-                    break;
-                // sub-int
-                case 0x0F:
-                    operand2 = mm.popPointer();
-                    operand1 = mm.popPointer();
-                    int diff = bytes2int(operand1.$b().bytes()) - bytes2int(operand2.$b().bytes());
-                    mm.pushPointer(newInteger(int2bytes(diff)));
-                    break;
-                // mul-int
-                case 0x10:
-                    operand2 = mm.popPointer();
-                    operand1 = mm.popPointer();
-                    int product = bytes2int(operand1.$b().bytes()) * bytes2int(operand2.$b().bytes());
-                    mm.pushPointer(newInteger(int2bytes(product)));
-                    break;
-                // div-int
-                case 0x11:
-                    operand2 = mm.popPointer();
-                    operand1 = mm.popPointer();
-                    int division = bytes2int(operand1.$b().bytes()) / bytes2int(operand2.$b().bytes());
-                    mm.pushPointer(newInteger(int2bytes(division)));
-                    break;
-                // mod-int
-                case 0x12:
-                    operand2 = mm.popPointer();
-                    operand1 = mm.popPointer();
-                    int modulo = bytes2int(operand1.$b().bytes()) % bytes2int(operand2.$b().bytes());
-                    mm.pushPointer(newInteger(int2bytes(modulo)));
-                    break;
-                // push-arg index val-pointer
-                case 0x13:
-                    index = mm.getIntFromBC();
-                    obj = mm.getPointerFromBC();
-                    mm.arg(index, obj);
-                    break;
-                // pop-arg index
-                case 0x14:
-                    index = mm.getIntFromBC();
-                    mm.pushPointer(mm.arg(index));
-                    break;
-                // set-bytes number
-                case 0x15:
-                    int number = mm.getIntFromBC();
-                    obj = mm.popPointer();
-                    obj.$b().bytes(int2bytes(number));
-                    break;
-                // new-int
-                case 0x16:
-                    obj = newInteger(int2bytes(mm.getIntFromBC()));
-                    mm.pushPointer(obj);
-                    break;
-                // new-str
-                case 0x17:
-                    obj = newString(str2bytes((String) mm.constant((int) mm.getIntFromBC())));
-                    mm.pushPointer(obj);
-                    break;
-                // new-arr
-                case 0x18:
-                    // TODO implement new-arr
-                    break;
-                // NOP = no operation
-                case 0x00:
-                    interpret = false;
-                    break;
-                default:
-                    throw new RuntimeException("Unknown instruction.");
-            }
-        }
-    }
 
-    protected void callMethod(Pointer obj, String selector) {
+    public void callMethod(Pointer obj, String selector) {
         Pointer objectClass = obj.$().clazz();
         Method method = lookupMethod(objectClass, selector);
 
         if (method != null) {
             mm.pushPointer(obj);
             mm.newFrame(method.numOfLocals());
-            jump(method.bytecodePointer());
+            interpreter.jump(method.bytecodePointer());
         } else {
             throw new RuntimeException("Method '" + selector + "' not found in class '" + bytes2str(objectClass.$c().name().$b().bytes()) + "'");
         }
     }
 
-    private Method lookupMethod(Pointer clazz, String selector) {
+    public Method lookupMethod(Pointer clazz, String selector) {
         Pointer current = clazz;
         while (!current.isNull()) {
             MM.Clazz c = current.$c();
@@ -366,75 +225,6 @@ public class Claus {
         return null;
     }
 
-    private void jump(CodePointer where) {
-        mm.setPC(where);
-    }
-
-    private Pointer createIntegerClass() {
-        Pointer clazz = newClazz(str2bytes("Integer"), MM.WORD_SIZE);
-
-        String[] plusBC = new String[]{
-                "pop-arg 1",
-                "pop-arg 0",
-                "add-int",
-                "return-top"
-        };
-        CodePointer plusMethod = mm.storeCode(Util.translateBytecode(plusBC));
-
-        String[] minusBC = new String[]{
-                "pop-arg 1",
-                "pop-arg 0",
-                "sub-int",
-                "return-top"
-        };
-        CodePointer minusMethod = mm.storeCode(Util.translateBytecode(minusBC));
-
-        String[] multiBC = new String[]{
-                "pop-arg 1",
-                "pop-arg 0",
-                "mul-int",
-                "return-top"
-        };
-        CodePointer multiMethod = mm.storeCode(Util.translateBytecode(multiBC));
-
-        String[] divBC = new String[]{
-                "pop-arg 1",
-                "pop-arg 0",
-                "div-int",
-                "return-top"
-        };
-        CodePointer divMethod = mm.storeCode(Util.translateBytecode(divBC));
-
-        String[] modBC = new String[]{
-                "pop-arg 1",
-                "pop-arg 0",
-                "mod-int",
-                "return-top"
-        };
-        CodePointer modMethod = mm.storeCode(Util.translateBytecode(modBC));
-
-        Pointer methodDictionaryOfObject = newMethodDictionary(asList(new Integer[]{
-                newMethod("add", plusMethod, 0),
-                newMethod("subtract", minusMethod, 0),
-                newMethod("multiply", multiMethod, 0),
-                newMethod("divide", divMethod, 0),
-                newMethod("modulo", modMethod, 0),
-        }));
-        clazz.$c().methods(methodDictionaryOfObject);
-
-        return clazz;
-    }
-
-    private Pointer createStringClass() {
-        Pointer clazz = newClazz(str2bytes("String"));
-
-        Pointer methodDictionaryOfObject = newMethodDictionary(asList(new Integer[]{
-//                        newMethod("add", plusMethod, 0),
-        }));
-        clazz.$c().methods(methodDictionaryOfObject);
-
-        return clazz;
-    }
 
     private void syscalls() {
         Syscalls.ints2calls.put(1, new Syscall("print") {
@@ -539,6 +329,29 @@ public class Claus {
             @Override
             public void call() {
                 System.out.println(bytes2int(mm.popPointer().$b().bytes()));
+            }
+        });
+
+        Syscalls.ints2calls.put(9, new Syscall("str-length") {
+            @Override
+            public void call() {
+                mm.pushPointer(newInteger(int2bytes(bytes2str(mm.popPointer().$b().bytes()).length())));
+            }
+        });
+
+        Syscalls.ints2calls.put(10, new Syscall("str-append") {
+            @Override
+            public void call() {
+                String str = bytes2str(mm.popPointer().$b().bytes());
+                str += bytes2str(mm.popPointer().$b().bytes());
+                mm.pushPointer(newString(str.getBytes()));
+            }
+        });
+
+        Syscalls.ints2calls.put(11, new Syscall("arr-length") {
+            @Override
+            public void call() {
+                mm.pushPointer(newInteger(int2bytes(mm.popPointer().$().size())));
             }
         });
 

@@ -15,8 +15,8 @@ public class Bytecode {
             put("return", new BytecodeInstruction(int2Byte(0x03), 0));
             put("return-top", new BytecodeInstruction(int2Byte(0x04), 0));
             put("new", new BytecodeInstruction(int2Byte(0x05), 1));
-            put("get-field", new BytecodeInstruction(int2Byte(0x06), 1));
-            put("set-field", new BytecodeInstruction(int2Byte(0x07), 2));
+            put("get-field", new BytecodeInstruction(int2Byte(0x06), 0));
+            put("set-field", new BytecodeInstruction(int2Byte(0x07), 0));
             put("push-ref", new BytecodeInstruction(int2Byte(0x08), 1));
             put("pop-ref", new BytecodeInstruction(int2Byte(0x09), 0));
             put("push-int", new BytecodeInstruction(int2Byte(0x0A), 1));

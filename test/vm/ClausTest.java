@@ -186,11 +186,47 @@ public class ClausTest {
                 "new-str " + mm.addConstant("new string"),
                 "syscall " + Syscalls.calls2ints.get("print"),
 
+                "new-str " + mm.addConstant("new string"),
+                "call " + mm.addConstant("length"),
+                "syscall " + Syscalls.calls2ints.get("print-int"),
+
+                "new-str " + mm.addConstant("Hello "),
+                "new-str " + mm.addConstant("World!"),
+                "call " + mm.addConstant("append"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
                 "return"
         };
 
         CodePointer entryPointPointer = mm.storeCode(Util.translateBytecode(entryPoint));
 
         vm.run(entryPointPointer);
+    }
+
+    @Test
+    public void testArray() {
+        String[] entryPoint = new String[]{
+                "new-arr " + mm.addConstant(10),
+                "push-local 0",
+                "pop-local 0",
+                "call " + mm.addConstant("length"),
+                "syscall " + Syscalls.calls2ints.get("print-int"),
+
+                "push-ref " + vm.newInteger(int2bytes(9)).address,
+                "push-int 2",
+                "pop-local 0",
+                "call " + mm.addConstant("set"),
+
+                "push-int 2",
+                "pop-local 0",
+                "call " + mm.addConstant("get"),
+                "syscall " + Syscalls.calls2ints.get("print-int"),
+
+                "return"
+        };
+
+        CodePointer entryPointPointer = mm.storeCode(Util.translateBytecode(entryPoint));
+
+        vm.run(entryPointPointer, 1);
     }
 }
