@@ -191,6 +191,10 @@ public class MM {
         programCounter = pc;
     }
 
+    public CodePointer getPC() {
+        return programCounter;
+    }
+
     public byte getByteFromBC() {
         byte b = code[programCounter.address];
         pcInstr();

@@ -34,8 +34,13 @@ public class Bytecode {
             put("new-int", new BytecodeInstruction(int2Byte(0x16), 1));
             put("new-str", new BytecodeInstruction(int2Byte(0x17), 1));
             put("new-arr", new BytecodeInstruction(int2Byte(0x18), 1));
-            // conditional jumps
-            // labels??
+            put("jmp", new BytecodeInstruction(int2Byte(0x19), 1));
+            put("jmp-eq-int", new BytecodeInstruction(int2Byte(0x1A), 1));
+            put("jmp-neq-int", new BytecodeInstruction(int2Byte(0x1B), 1));
+            put("jmp-gt-int", new BytecodeInstruction(int2Byte(0x1C), 1));
+            put("jmp-ge-int", new BytecodeInstruction(int2Byte(0x1D), 1));
+            put("jmp-lt-int", new BytecodeInstruction(int2Byte(0x1E), 1));
+            put("jmp-le-int", new BytecodeInstruction(int2Byte(0x1F), 1));
         }
     };
 

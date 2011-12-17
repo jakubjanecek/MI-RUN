@@ -280,4 +280,161 @@ public class ClausVMTest {
 
         vm.run(entryPointPointer, 1);
     }
+
+    @Test
+    public void testJumps() {
+        String[] entryPoint = new String[]{
+                // unconditional jump
+                "jmp " + (2 * MM.INSTR_SIZE + 2 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("did not jump"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+                "new-str " + mm.addConstant("jumped"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
+                // conditional jump if integers equal
+                "new-int 1",
+                "new-int 1",
+                "jmp-eq-int " + (2 * MM.INSTR_SIZE + 2 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("did not jump"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+                "new-str " + mm.addConstant("jumped"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
+                // conditional jump if integers equal
+                "new-int 1",
+                "new-int 2",
+                "jmp-eq-int " + (3 * MM.INSTR_SIZE + 3 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("did not jump"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+                "jmp " + (2 * MM.INSTR_SIZE + 2 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("jumped"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
+                // conditional jump if integers not equal
+                "new-int 1",
+                "new-int 1",
+                "jmp-neq-int " + (MM.INSTR_SIZE + MM.WORD_SIZE + MM.INSTR_SIZE + MM.WORD_SIZE),
+                "new-str " + mm.addConstant("did not jump"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+                "jmp " + (2 * MM.INSTR_SIZE + 2 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("jumped"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
+                // conditional jump if integers not equal
+                "new-int 2",
+                "new-int 1",
+                "jmp-neq-int " + (3 * MM.INSTR_SIZE + 3 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("did not jump"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+                "jmp " + (2 * MM.INSTR_SIZE + 2 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("jumped"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
+                // conditional jump if first integer greater than second integer
+                "new-int 2",
+                "new-int 1",
+                "jmp-gt-int " + (3 * MM.INSTR_SIZE + 3 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("did not jump"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+                "jmp " + (2 * MM.INSTR_SIZE + 2 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("jumped"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
+                // conditional jump if first integer greater than second integer
+                "new-int 1",
+                "new-int 1",
+                "jmp-gt-int " + (3 * MM.INSTR_SIZE + 3 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("did not jump"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+                "jmp " + (2 * MM.INSTR_SIZE + 2 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("jumped"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
+                // conditional jump if first integer less than second integer
+                "new-int 2",
+                "new-int 1",
+                "jmp-lt-int " + (3 * MM.INSTR_SIZE + 3 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("did not jump"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+                "jmp " + (2 * MM.INSTR_SIZE + 2 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("jumped"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
+                // conditional jump if first integer less than second integer
+                "new-int 1",
+                "new-int 2",
+                "jmp-lt-int " + (3 * MM.INSTR_SIZE + 3 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("did not jump"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+                "jmp " + (2 * MM.INSTR_SIZE + 2 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("jumped"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
+                // conditional jump if first integer greater than or equal second integer
+                "new-int 2",
+                "new-int 2",
+                "jmp-ge-int " + (3 * MM.INSTR_SIZE + 3 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("did not jump"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+                "jmp " + (2 * MM.INSTR_SIZE + 2 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("jumped"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
+                // conditional jump if first integer greater than or equal second integer
+                "new-int 2",
+                "new-int 1",
+                "jmp-ge-int " + (3 * MM.INSTR_SIZE + 3 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("did not jump"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+                "jmp " + (2 * MM.INSTR_SIZE + 2 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("jumped"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
+                // conditional jump if first integer greater than or equal second integer
+                "new-int 2",
+                "new-int 3",
+                "jmp-ge-int " + (3 * MM.INSTR_SIZE + 3 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("did not jump"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+                "jmp " + (2 * MM.INSTR_SIZE + 2 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("jumped"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
+                // conditional jump if first integer less than or equal second integer
+                "new-int 2",
+                "new-int 2",
+                "jmp-le-int " + (3 * MM.INSTR_SIZE + 3 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("did not jump"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+                "jmp " + (2 * MM.INSTR_SIZE + 2 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("jumped"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
+                // conditional jump if first integer less than or equal second integer
+                "new-int 2",
+                "new-int 1",
+                "jmp-le-int " + (3 * MM.INSTR_SIZE + 3 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("did not jump"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+                "jmp " + (2 * MM.INSTR_SIZE + 2 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("jumped"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
+                // conditional jump if first integer less than or equal second integer
+                "new-int 2",
+                "new-int 3",
+                "jmp-le-int " + (3 * MM.INSTR_SIZE + 3 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("did not jump"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+                "jmp " + (2 * MM.INSTR_SIZE + 2 * MM.WORD_SIZE),
+                "new-str " + mm.addConstant("jumped"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
+                "return"
+        };
+
+        CodePointer entryPointPointer = mm.storeCode(Util.translateBytecode(entryPoint));
+
+        vm.run(entryPointPointer, 0);
+    }
 }

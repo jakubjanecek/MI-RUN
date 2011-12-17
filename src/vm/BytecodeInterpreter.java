@@ -157,16 +157,71 @@ public class BytecodeInterpreter {
                     break;
                 // new-str
                 case 0x17:
-                    obj = vm.newString(str2bytes((String) mm.constant((int) mm.getIntFromBC())));
+                    obj = vm.newString(str2bytes((String) mm.constant(mm.getIntFromBC())));
                     mm.pushPointer(obj);
                     break;
                 // new-arr
                 case 0x18:
                     mm.pushPointer(vm.newArray((Integer) mm.constant(mm.getIntFromBC())));
                     break;
-                // NOP = no operation
-                case 0x00:
-                    interpret = false;
+                // jmp
+                case 0x19:
+                    int offset = mm.getIntFromBC();
+                    jump(mm.getPC().arith(offset));
+                    break;
+                // jmp-eq-int
+                case 0x1A:
+                    offset = mm.getIntFromBC();
+                    int i1 = bytes2int(mm.popPointer().$b().bytes());
+                    int i2 = bytes2int(mm.popPointer().$b().bytes());
+                    if (i1 == i2) {
+                        jump(mm.getPC().arith(offset));
+                    }
+                    break;
+                // jmp-neq-int
+                case 0x1B:
+                    offset = mm.getIntFromBC();
+                    i1 = bytes2int(mm.popPointer().$b().bytes());
+                    i2 = bytes2int(mm.popPointer().$b().bytes());
+                    if (i1 != i2) {
+                        jump(mm.getPC().arith(offset));
+                    }
+                    break;
+                // jmp-gt-int
+                case 0x1C:
+                    offset = mm.getIntFromBC();
+                    i2 = bytes2int(mm.popPointer().$b().bytes());
+                    i1 = bytes2int(mm.popPointer().$b().bytes());
+                    if (i1 > i2) {
+                        jump(mm.getPC().arith(offset));
+                    }
+                    break;
+                // jmp-ge-int
+                case 0x1D:
+                    offset = mm.getIntFromBC();
+                    i2 = bytes2int(mm.popPointer().$b().bytes());
+                    i1 = bytes2int(mm.popPointer().$b().bytes());
+                    if (i1 >= i2) {
+                        jump(mm.getPC().arith(offset));
+                    }
+                    break;
+                // jmp-lt-int
+                case 0x1E:
+                    offset = mm.getIntFromBC();
+                    i2 = bytes2int(mm.popPointer().$b().bytes());
+                    i1 = bytes2int(mm.popPointer().$b().bytes());
+                    if (i1 < i2) {
+                        jump(mm.getPC().arith(offset));
+                    }
+                    break;
+                // jmp-le-int
+                case 0x1F:
+                    offset = mm.getIntFromBC();
+                    i2 = bytes2int(mm.popPointer().$b().bytes());
+                    i1 = bytes2int(mm.popPointer().$b().bytes());
+                    if (i1 <= i2) {
+                        jump(mm.getPC().arith(offset));
+                    }
                     break;
                 default:
                     throw new RuntimeException("Unknown instruction.");
