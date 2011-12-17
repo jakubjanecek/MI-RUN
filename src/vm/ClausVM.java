@@ -27,8 +27,8 @@ public class ClausVM {
 
     private List<Pointer> classes;
 
-    private List<FileInputStream> inputHandles;
-    private List<FileOutputStream> outputHandles;
+    private List<BufferedReader> inputHandles;
+    private List<BufferedWriter> outputHandles;
 
     public static void main(String... args) {
         new ClausVM(new MM(1024, 1024, 1024));
@@ -57,8 +57,8 @@ public class ClausVM {
     }
 
     private final void bootstrap() {
-        inputHandles = new ArrayList<FileInputStream>();
-        outputHandles = new ArrayList<FileOutputStream>();
+        inputHandles = new ArrayList<BufferedReader>();
+        outputHandles = new ArrayList<BufferedWriter>();
 
         metaclass = newClazz(str2bytes("Metaclass"));
         // Object does not have a superclass! Needs to be specified directly here!
@@ -257,15 +257,15 @@ public class ClausVM {
             @Override
             public void call() {
                 String filename = bytes2str(mm.popPointer().$b().bytes());
-                FileInputStream fis = null;
+                BufferedReader br = null;
                 try {
-                    fis = new FileInputStream(filename);
+                    br = new BufferedReader(new FileReader(filename));
                 } catch (FileNotFoundException e) {
                     throw new RuntimeException("File '" + filename + "' does not exist.");
                 }
 
-                inputHandles.add(fis);
-                int index = inputHandles.indexOf(fis);
+                inputHandles.add(br);
+                int index = inputHandles.indexOf(br);
                 mm.pushPointer(newInteger(int2bytes(index)));
             }
         });
@@ -274,15 +274,17 @@ public class ClausVM {
             @Override
             public void call() {
                 String filename = bytes2str(mm.popPointer().$b().bytes());
-                FileOutputStream fos = null;
+                BufferedWriter bw = null;
                 try {
-                    fos = new FileOutputStream(filename);
+                    bw = new BufferedWriter(new FileWriter(filename));
                 } catch (FileNotFoundException e) {
                     throw new RuntimeException("File '" + filename + "' does not exist.");
+                } catch (IOException e) {
+                    throw new RuntimeException("File '" + filename + "' could not be opened for writing.");
                 }
 
-                outputHandles.add(fos);
-                int index = outputHandles.indexOf(fos);
+                outputHandles.add(bw);
+                int index = outputHandles.indexOf(bw);
                 mm.pushPointer(newInteger(int2bytes(index)));
             }
         });
@@ -317,8 +319,7 @@ public class ClausVM {
             @Override
             public void call() {
                 int handle = bytes2int(mm.popPointer().$b().bytes());
-                FileInputStream fis = inputHandles.get(handle);
-                BufferedReader br = new BufferedReader(new InputStreamReader(fis));
+                BufferedReader br = inputHandles.get(handle);
                 try {
                     Pointer str = newString(str2bytes(br.readLine()));
                     mm.pushPointer(str);
@@ -333,8 +334,7 @@ public class ClausVM {
             public void call() {
                 String str = bytes2str(mm.popPointer().$b().bytes());
                 int handle = bytes2int(mm.popPointer().$b().bytes());
-                FileOutputStream fos = outputHandles.get(handle);
-                BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fos));
+                BufferedWriter bw = outputHandles.get(handle);
                 try {
                     bw.write(str);
                     bw.flush();
