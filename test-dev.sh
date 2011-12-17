@@ -1,11 +1,11 @@
 #!/bin/bash
 
 cd out
-
-echo "FirstTest"
+echo "-------------------"
+echo "[FirstTest]:"
 java Claus < ../test/FirstTest.claus
-
-echo "Knapsack03"
-java vm.Claus < ../test/Knapsack03.claus
-
+echo "-------------------"
+echo "[Knapsack03]:"
+java Claus < ../test/Knapsack03.claus
+echo "-------------------"
 cd ..
