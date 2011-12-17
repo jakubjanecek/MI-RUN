@@ -48,10 +48,10 @@ public class ClausTest {
         byte[] carRef = int2bytes(objectCar.address);
         String[] entryPoint = new String[]{
                 "push-ref " + objectCar.address,
-                "call " + vm.newString(str2bytes("getObjectID")).address,
+                "call " + mm.addConstant("getObjectID"),
 
                 "push-ref " + objectCar.address,
-                "call " + vm.newString(str2bytes("drive")).address,
+                "call " + mm.addConstant("drive"),
 
                 "return"
         };
@@ -144,32 +144,32 @@ public class ClausTest {
         String[] entryPoint = new String[]{
                 "new-int 123",
                 "new-int 321",
-                "call " + vm.newString(str2bytes("add")).address,
+                "call " + mm.addConstant("add"),
                 "syscall " + Syscalls.calls2ints.get("print-int"),
 
                 "new-int 10",
                 "new-int 8",
-                "call " + vm.newString(str2bytes("subtract")).address,
+                "call " + mm.addConstant("subtract"),
                 "syscall " + Syscalls.calls2ints.get("print-int"),
 
                 "new-int 10",
                 "new-int 8",
-                "call " + vm.newString(str2bytes("multiply")).address,
+                "call " + mm.addConstant("multiply"),
                 "syscall " + Syscalls.calls2ints.get("print-int"),
 
                 "new-int 10",
                 "new-int 5",
-                "call " + vm.newString(str2bytes("divide")).address,
+                "call " + mm.addConstant("divide"),
                 "syscall " + Syscalls.calls2ints.get("print-int"),
 
                 "new-int 10",
                 "new-int 8",
-                "call " + vm.newString(str2bytes("divide")).address,
+                "call " + mm.constantIndex("divide"),
                 "syscall " + Syscalls.calls2ints.get("print-int"),
 
                 "new-int 5",
                 "new-int 2",
-                "call " + vm.newString(str2bytes("modulo")).address,
+                "call " + mm.addConstant("modulo"),
                 "syscall " + Syscalls.calls2ints.get("print-int"),
 
                 "return"
@@ -183,8 +183,8 @@ public class ClausTest {
     @Test
     public void testString() {
         String[] entryPoint = new String[]{
-                "new-str " + "test".getBytes().length + " test",
-                "syscall " + Syscalls.calls2ints.get("print-int"),
+                "new-str " + mm.addConstant("new string"),
+                "syscall " + Syscalls.calls2ints.get("print"),
 
                 "return"
         };

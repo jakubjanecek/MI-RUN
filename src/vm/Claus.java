@@ -178,9 +178,9 @@ public class Claus {
                     int syscall = mm.getIntFromBC();
                     Syscalls.ints2calls.get(syscall).call();
                     break;
-                // call selector-pointer
+                // call selector-index
                 case 0x02:
-                    String methodSelector = bytes2str(mm.getPointerFromBC().$b().bytes());
+                    String methodSelector = (String) mm.constant(mm.getIntFromBC());
                     callMethod(mm.popPointer(), methodSelector);
                     break;
                 // return
@@ -308,12 +308,7 @@ public class Claus {
                     break;
                 // new-str
                 case 0x17:
-                    int numOfBytes = mm.getIntFromBC();
-                    byte[] strBytes = new byte[numOfBytes];
-                    for (int i = 0; i < numOfBytes; i++) {
-                        strBytes[i] = mm.getByteFromBC();
-                    }
-                    obj = newString(strBytes);
+                    obj = newString(str2bytes((String) mm.constant((int) mm.getIntFromBC())));
                     mm.pushPointer(obj);
                     break;
                 // new-arr
