@@ -6,9 +6,11 @@ options {
 
 PARSER_BEGIN(Claus)
 
-import src.vm.mm.CodePointer;
-import src.vm.mm.MM;
-import src.vm.mm.Pointer;
+//package vm;
+
+import vm.mm.CodePointer;
+import vm.mm.MM;
+import vm.mm.Pointer;
 
 class Claus {
   public static void main(String[] args) throws ParseException, TokenMgrError {
