@@ -1,9 +1,9 @@
 class Knapsack {
 
-  var n
-  var capacity
-  var weights
-  var prices
+  var n = 0
+  var capacity = 0
+  var weights = 0
+  var prices = 0
 
   entry-point {
     var knapsack = new Knapsack
