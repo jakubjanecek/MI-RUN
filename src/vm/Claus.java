@@ -2,6 +2,8 @@ package vm;
 
 import vm.mm.*;
 
+import java.io.*;
+import java.util.ArrayList;
 import java.util.List;
 
 import static java.util.Arrays.asList;
@@ -21,6 +23,9 @@ public class Claus {
 
     private Pointer classOfInteger;
 
+    private List<FileInputStream> inputHandles;
+    private List<FileOutputStream> outputHandles;
+
     public static void main(String... args) {
         new Claus(new MM(1024, 1024, 1024));
     }
@@ -39,7 +44,10 @@ public class Claus {
         interpret();
     }
 
-    private void bootstrap() {
+    private final void bootstrap() {
+        inputHandles = new ArrayList<FileInputStream>();
+        outputHandles = new ArrayList<FileOutputStream>();
+
         metaclass = newClazz(str2bytes("Metaclass"));
         classOfObject = newClazz(str2bytes("Object"), mm.NULL);
         metaclass.$c().metaclass(metaclass);
@@ -325,13 +333,6 @@ public class Claus {
         mm.setPC(where);
     }
 
-    // OTHER INSTRUCTIONS WE WILL POSSIBLY NEED
-    // open-file
-    // read-char
-    // read-line
-    // write-char
-    // write-line
-    // close-file
     private void syscalls() {
         Syscalls.ints2calls.put(1, new Syscall("print") {
             @Override
@@ -340,6 +341,96 @@ public class Claus {
             }
         });
 
+        Syscalls.ints2calls.put(2, new Syscall("open-file-r") {
+            @Override
+            public void call() {
+                String filename = bytes2str(mm.popPointer().$b().bytes());
+                FileInputStream fis = null;
+                try {
+                    fis = new FileInputStream(filename);
+                } catch (FileNotFoundException e) {
+                    throw new RuntimeException("File '" + filename + "' does not exist.");
+                }
+
+                inputHandles.add(fis);
+                int index = inputHandles.indexOf(fis);
+                mm.pushPointer(newInteger(int2bytes(index)));
+            }
+        });
+
+        Syscalls.ints2calls.put(3, new Syscall("open-file-w") {
+            @Override
+            public void call() {
+                String filename = bytes2str(mm.popPointer().$b().bytes());
+                FileOutputStream fos = null;
+                try {
+                    fos = new FileOutputStream(filename);
+                } catch (FileNotFoundException e) {
+                    throw new RuntimeException("File '" + filename + "' does not exist.");
+                }
+
+                outputHandles.add(fos);
+                int index = outputHandles.indexOf(fos);
+                mm.pushPointer(newInteger(int2bytes(index)));
+            }
+        });
+
+        Syscalls.ints2calls.put(4, new Syscall("close-file-r") {
+            @Override
+            public void call() {
+                int handle = bytes2int(mm.popPointer().$b().bytes());
+                Closeable closeable = inputHandles.get(handle);
+                try {
+                    closeable.close();
+                } catch (IOException e) {
+                    throw new RuntimeException("File could not be closed.");
+                }
+            }
+        });
+
+        Syscalls.ints2calls.put(5, new Syscall("close-file-w") {
+            @Override
+            public void call() {
+                int handle = bytes2int(mm.popPointer().$b().bytes());
+                Closeable closeable = outputHandles.get(handle);
+                try {
+                    closeable.close();
+                } catch (IOException e) {
+                    throw new RuntimeException("File could not be closed.");
+                }
+            }
+        });
+
+        Syscalls.ints2calls.put(6, new Syscall("read-line") {
+            @Override
+            public void call() {
+                int handle = bytes2int(mm.popPointer().$b().bytes());
+                FileInputStream fis = inputHandles.get(handle);
+                BufferedReader br = new BufferedReader(new InputStreamReader(fis));
+                try {
+                    Pointer str = newString(str2bytes(br.readLine()));
+                    mm.pushPointer(str);
+                } catch (IOException e) {
+                    throw new RuntimeException("IO error while reading file.");
+                }
+            }
+        });
+
+        Syscalls.ints2calls.put(7, new Syscall("write-line") {
+            @Override
+            public void call() {
+                String str = bytes2str(mm.popPointer().$b().bytes());
+                int handle = bytes2int(mm.popPointer().$b().bytes());
+                FileOutputStream fos = outputHandles.get(handle);
+                BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fos));
+                try {
+                    bw.write(str);
+                    bw.flush();
+                } catch (IOException e) {
+                    throw new RuntimeException("IO error while writing file.");
+                }
+            }
+        });
 
         // needs to be called
         Syscalls.generateReversedTable();

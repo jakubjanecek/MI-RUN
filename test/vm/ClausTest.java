@@ -6,8 +6,11 @@ import vm.mm.CodePointer;
 import vm.mm.MM;
 import vm.mm.Pointer;
 
+import java.io.File;
+
 import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static vm.Util.*;
 
 public class ClausTest {
@@ -75,5 +78,67 @@ public class ClausTest {
         Pointer anObject = vm.newObject(someClass, 0);
 
         vm.callMethod(anObject, "nonexisting");
+    }
+
+    @Test
+    public void openFile() {
+        String filename = "/Users/platinix/test.out";
+        mm.pushPointer(vm.newString(str2bytes(filename)));
+        Syscalls.ints2calls.get(Syscalls.calls2ints.get("open-file-w")).call();
+
+        assertTrue(new File(filename).exists());
+
+        new File(filename).delete();
+    }
+
+    @Test
+    public void writeAndCloseFile() {
+        String filename = "/Users/platinix/test1.out";
+        mm.pushPointer(vm.newString(str2bytes(filename)));
+        Syscalls.ints2calls.get(Syscalls.calls2ints.get("open-file-w")).call();
+
+        Pointer handle = mm.popPointer();
+
+        mm.pushPointer(handle);
+        mm.pushPointer(vm.newString(str2bytes("test write success")));
+        Syscalls.ints2calls.get(Syscalls.calls2ints.get("write-line")).call();
+
+        mm.pushPointer(handle);
+        Syscalls.ints2calls.get(Syscalls.calls2ints.get("close-file-w")).call();
+
+        new File(filename).delete();
+    }
+
+    @Test
+    public void writeAndReadAndCloseFile() {
+        String filename = "/Users/platinix/test2.out";
+        mm.pushPointer(vm.newString(str2bytes(filename)));
+        Syscalls.ints2calls.get(Syscalls.calls2ints.get("open-file-w")).call();
+
+        Pointer handle = mm.popPointer();
+
+        String expected = "test write success";
+
+        mm.pushPointer(handle);
+        mm.pushPointer(vm.newString(str2bytes(expected)));
+        Syscalls.ints2calls.get(Syscalls.calls2ints.get("write-line")).call();
+
+        mm.pushPointer(handle);
+        Syscalls.ints2calls.get(Syscalls.calls2ints.get("close-file-w")).call();
+
+        mm.pushPointer(vm.newString(str2bytes(filename)));
+        Syscalls.ints2calls.get(Syscalls.calls2ints.get("open-file-r")).call();
+
+        handle = mm.popPointer();
+
+        mm.pushPointer(handle);
+        Syscalls.ints2calls.get(Syscalls.calls2ints.get("read-line")).call();
+
+        assertEquals(expected, bytes2str(mm.popPointer().$b().bytes()));
+
+        mm.pushPointer(handle);
+        Syscalls.ints2calls.get(Syscalls.calls2ints.get("close-file-r")).call();
+
+        new File(filename).delete();
     }
 }
