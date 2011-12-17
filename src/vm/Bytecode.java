@@ -26,9 +26,14 @@ public class Bytecode {
             put("add-int", new BytecodeInstruction(int2Byte(0x0E), 0));
             put("sub-int", new BytecodeInstruction(int2Byte(0x0F), 0));
             put("mul-int", new BytecodeInstruction(int2Byte(0x10), 0));
-            put("div-int", new BytecodeInstruction(int2Byte(0x20), 0));
-            put("mod-int", new BytecodeInstruction(int2Byte(0x30), 0));
-
+            put("div-int", new BytecodeInstruction(int2Byte(0x11), 0));
+            put("mod-int", new BytecodeInstruction(int2Byte(0x12), 0));
+            put("push-arg", new BytecodeInstruction(int2Byte(0x13), 1));
+            put("pop-arg", new BytecodeInstruction(int2Byte(0x14), 1));
+            put("set-bytes", new BytecodeInstruction(int2Byte(0x15), 1));
+            put("new-int", new BytecodeInstruction(int2Byte(0x16), 1));
+            put("new-str", new BytecodeInstruction(int2Byte(0x17), 2));
+            put("new-arr", new BytecodeInstruction(int2Byte(0x18), 1));
             // conditional jumps
             // labels??
         }

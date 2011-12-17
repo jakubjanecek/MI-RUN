@@ -44,8 +44,13 @@ public class Util {
 
             for (int i = 1; i <= opcode.numOfArguments; i++) {
                 String arg = parts[i];
-                for (byte b : int2bytes(Integer.valueOf(arg))) {
-                    output.add(b);
+                try {
+                    Integer intVal = Integer.valueOf(arg);
+                    for (byte b : int2bytes(intVal)) {
+                        output.add(b);
+                    }
+                } catch (NumberFormatException ex) {
+
                 }
             }
         }

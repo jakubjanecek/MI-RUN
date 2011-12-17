@@ -39,6 +39,8 @@ public class MM {
 
     private List<Method> methods;
 
+    private List<Object> constantPool;
+
     private CodePointer programCounter = new CodePointer(0, this);
 
     public MM(int codeSize, int heapSize, int stackSize) {
@@ -138,13 +140,24 @@ public class MM {
         }
     }
 
-    public void pushLocal(int index, Pointer val) {
+    public void arg(int index, Pointer val) {
+        int address = basePointer - WORD_SIZE - (index * WORD_SIZE);
+        storePointer(stack, address, val);
+    }
+
+    public Pointer arg(int index) {
+        int address = basePointer - WORD_SIZE - (index * WORD_SIZE);
+        Pointer p = retrievePointer(stack, address);
+        return p;
+    }
+
+    public void local(int index, Pointer val) {
         // caller + return address + local at position
         int address = basePointer + WORD_SIZE + WORD_SIZE + (index * WORD_SIZE);
         storePointer(stack, address, val);
     }
 
-    public Pointer popLocal(int index) {
+    public Pointer local(int index) {
         // caller + return address + local at position 
         int address = basePointer + WORD_SIZE + WORD_SIZE + (index * WORD_SIZE);
         Pointer p = retrievePointer(stack, address);
@@ -177,10 +190,6 @@ public class MM {
         programCounter = pc;
     }
 
-    public CodePointer getPC() {
-        return programCounter;
-    }
-
     public byte getByteFromBC() {
         byte b = code[programCounter.address];
         pcInstr();
@@ -197,6 +206,15 @@ public class MM {
         Pointer p = retrievePointer(code, programCounter.address);
         pcWord();
         return p;
+    }
+
+    public int addConstant(Object constant) {
+        constantPool.add(constant);
+        return constantPool.indexOf(constant);
+    }
+
+    public Object constant(int index) {
+        return constantPool.get(index);
     }
 
     public int pointerIndexedObjectSize(int size) {
@@ -435,12 +453,20 @@ public class MM {
             return field(2);
         }
 
+        public void objectSize(Pointer objectSize) {
+            field(3, objectSize);
+        }
+
+        public Pointer objectSize() {
+            return field(3);
+        }
+
         public void methods(Pointer methods) {
-            field(3, methods);
+            field(4, methods);
         }
 
         public Pointer methods() {
-            return field(3);
+            return field(4);
         }
     }
 
