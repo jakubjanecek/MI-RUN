@@ -152,10 +152,6 @@ public class LibraryClasses {
         };
         CodePointer openMethod = mm.storeCode(Util.translateBytecode(openBC));
 
-//        "pop-local 0",
-//                        "push-int 0",
-//                        "get-field",
-//                        "syscall " + Syscalls.calls2ints.get("print-int"),
         String[] closeBC = new String[]{
                 "pop-arg 0",
                 "push-int 0",
@@ -165,10 +161,19 @@ public class LibraryClasses {
         };
         CodePointer closeMethod = mm.storeCode(Util.translateBytecode(closeBC));
 
+        String[] readLineBC = new String[]{
+                "pop-arg 0",
+                "push-int 0",
+                "get-field",
+                "syscall " + Syscalls.calls2ints.get("read-line"),
+                "return-top"
+        };
+        CodePointer readLineMethod = mm.storeCode(Util.translateBytecode(readLineBC));
+
         Pointer methodDictionaryOfObject = vm.newMethodDictionary(asList(new Integer[]{
                 vm.newMethod("open", openMethod, 1),
                 vm.newMethod("close", closeMethod, 0),
-//                vm.newMethod("readLine", lengthMethod, 0)
+                vm.newMethod("readLine", readLineMethod, 0)
         }));
         clazz.$c().methods(methodDictionaryOfObject);
 
@@ -176,17 +181,43 @@ public class LibraryClasses {
     }
 
     public Pointer createTextFileWriterClass() {
-        Pointer clazz = vm.newClazz(str2bytes("TextFileWriter"));
+        Pointer clazz = vm.newClazz(str2bytes("TextFileWriter"), 1);
 
-        String[] lengthBC = new String[]{
+        String[] openBC = new String[]{
+                "pop-arg 1",
+                "syscall " + Syscalls.calls2ints.get("open-file-w"),
+                "push-local 0",
                 "pop-arg 0",
-                "syscall " + Syscalls.calls2ints.get("arr-length"),
-                "return-top"
+                "push-int 0",
+                "pop-local 0",
+                "set-field",
+                "return"
         };
-        CodePointer lengthMethod = mm.storeCode(Util.translateBytecode(lengthBC));
+        CodePointer openMethod = mm.storeCode(Util.translateBytecode(openBC));
+
+        String[] closeBC = new String[]{
+                "pop-arg 0",
+                "push-int 0",
+                "get-field",
+                "syscall " + Syscalls.calls2ints.get("close-file-w"),
+                "return"
+        };
+        CodePointer closeMethod = mm.storeCode(Util.translateBytecode(closeBC));
+
+        String[] writeLineBC = new String[]{
+                "pop-arg 0",
+                "push-int 0",
+                "get-field",
+                "pop-arg 1",
+                "syscall " + Syscalls.calls2ints.get("write-line"),
+                "return"
+        };
+        CodePointer writeLineMethod = mm.storeCode(Util.translateBytecode(writeLineBC));
 
         Pointer methodDictionaryOfObject = vm.newMethodDictionary(asList(new Integer[]{
-                vm.newMethod("length", lengthMethod, 0),
+                vm.newMethod("open", openMethod, 1),
+                vm.newMethod("close", closeMethod, 0),
+                vm.newMethod("writeLine", writeLineMethod, 1)
         }));
         clazz.$c().methods(methodDictionaryOfObject);
 

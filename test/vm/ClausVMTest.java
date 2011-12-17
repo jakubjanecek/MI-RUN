@@ -21,7 +21,7 @@ public class ClausVMTest {
 
     @Before
     public void setup() {
-        int size = 1024;
+        int size = 2048;
         mm = new MM(size, size, size);
         vm = new ClausVM(mm);
     }
@@ -45,7 +45,6 @@ public class ClausVMTest {
         objectCar.$p().field(0, vm.newString(str2bytes("test1")));
 
         // entry-point
-        byte[] carRef = int2bytes(objectCar.address);
         String[] entryPoint = new String[]{
                 "push-ref " + objectCar.address,
                 "call " + mm.addConstant("getObjectID"),
@@ -238,6 +237,38 @@ public class ClausVMTest {
                 "push-ref " + vm.newString(str2bytes("/Users/platinix/test.txt")).address,
                 "pop-local 0",
                 "call " + mm.addConstant("open"),
+
+                "pop-local 0",
+                "call " + mm.addConstant("readLine"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+                "pop-local 0",
+                "call " + mm.addConstant("readLine"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
+                "pop-local 0",
+                "call " + mm.addConstant("close"),
+
+                "return"
+        };
+
+        CodePointer entryPointPointer = mm.storeCode(Util.translateBytecode(entryPoint));
+
+        vm.run(entryPointPointer, 1);
+    }
+
+    @Test
+    public void testTextFileWriter() {
+        String[] entryPoint = new String[]{
+                "new " + vm.getClazz("TextFileWriter").address,
+                "push-local 0",
+                "push-ref " + vm.newString(str2bytes("/Users/platinix/test1.txt")).address,
+                "pop-local 0",
+                "call " + mm.addConstant("open"),
+
+                "push-ref " + vm.newString(str2bytes("hellow world!")).address,
+                "pop-local 0",
+                "call " + mm.addConstant("writeLine"),
+
 
                 "pop-local 0",
                 "call " + mm.addConstant("close"),
