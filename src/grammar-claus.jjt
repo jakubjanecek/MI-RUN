@@ -1,5 +1,5 @@
 options {
-  // DEBUG_PARSER = true;
+  DEBUG_PARSER = true;
   STATIC = false;
   MULTI = true;
 }
@@ -110,19 +110,18 @@ void EntryPoint():
 {
   <ENTRYPOINT_KW> <LBRACE> MethodBody() <RBRACE>
   {
-    Pointer objectObj = vim.newObject(inputClass, vm.Util.bytes2int(inputClass.$c().objectSize().$b().bytes()));
-    objectObj.$p().field(0, vim.newString(vm.Util.str2bytes("test1")));
+    //Pointer objectObj = vim.newObject(inputClass, vm.Util.bytes2int(inputClass.$c().objectSize().$b().bytes()));
+    //objectObj.$p().field(0, vim.newString(vm.Util.str2bytes("test1")));
     
-    byte[] carRef = vm.Util.int2bytes(objectObj.address);
-    String[] entryPoint = new String[]{
-            "push-ref " + objectObj.address,
-            "call " + mem.addConstant("getObjectID"),
-            "push-ref " + objectObj.address,
-            "call " + mem.addConstant("drive"),
+    //byte[] carRef = vm.Util.int2bytes(objectObj.address);
+    String[] epCode = new String[]{
+            "new-int 10",
+            "new-int 20",
+            "call " + mem.addConstant("add"),
+            "syscall " + vm.Syscalls.calls2ints.get("print-int"),
             "return"
     };
-    CodePointer entryPointPointer = mem.storeCode(vm.Util.translateBytecode(entryPoint));
-    vim.run(entryPointPointer);
+    vim.run(mem.storeCode(vm.Util.translateBytecode(epCode)));
   }
 }
 
