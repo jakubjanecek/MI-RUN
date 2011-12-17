@@ -1,0 +1,331 @@
+/* Options - http://javacc.java.net/doc/JJTree.html */
+options {
+  //IGNORE_CASE = false;
+  MULTI = true;
+  NODE_PREFIX = "";
+  STATIC = false;
+}
+
+/* Claus parser */
+PARSER_BEGIN(Claus)
+
+  class Claus {
+    public static void main(String[] args) {
+      try {
+        System.out.println((new Claus(System.in)).Class());
+      } catch (ParseException pe) {
+        System.out.println("Parse exception: " + pe.getMessage());
+        return;
+      } catch (TokenMgrError tme) {
+        System.out.println("Token mgr error: " + tme.getMessage());
+        return;
+      }
+      System.out.println("Parsing finished.");
+    }
+  }
+
+PARSER_END(Claus)
+
+/* Memmory and VM initialization */
+{
+  MM mem = new MM(1024, 256, 1024);
+  Claus cRun = new Claus(mem);
+  PrintWriter pw = new PrintWriter("Claus.j");
+}
+
+/* Whitespaces skipping */
+SKIP: {
+  " "
+| "\t"
+| "\n"
+| "\r"
+}
+
+/* Tokens definition */
+TOKEN: {
+  <CLASS_KW: "class">
+| <ENTRYPOINT_KW: "entry-point">
+| <DEF_KW: "def">
+| <VAR_KW: "var">
+| <RETURN_KW: "return">
+| <NEW_KW: "new">
+| <FOR_KW: "for">
+| <FOR_ARROW_KW: "<-">
+| <WHILE_KW: "while">
+| <IF_KW: "if">
+| <ELSE_KW: "else">
+| <TRUE_KW: "true">
+| <FALSE_KW: "false">
+| <LBRACE: "{">
+| <RBRACE: "}">
+| <LPAREN: "(">
+| <RPAREN: ")">
+| <LBRACKET: "[">
+| <RBRACKET: "]">
+| <COLON: ":">
+| <SEMI: ";">
+| <COMMA: ",">
+| <PERIOD: ".">
+| <DECLARATION_EQUALS: "=">
+| <PLUS: "+">
+| <MINUS: "-">
+| <MULTIPLICATION: "*">
+| <DIVISION: "/">
+| <MODULO: "%">
+| <POWER: "^">
+| <EQUALS: "==">
+| <NOT_EQUALS: "!=">
+| <LT: "<">
+| <GT: ">">
+| <ID: ["a"-"z","A"-"Z"](["a"-"z","A"-"Z","0"-"9"])*>
+| <STRING: "\""(~["\""])*"\"">
+| <INTEGER: (["0"-"9"])+>
+}
+
+/* Class */
+AbstractSyntaxTreeClass Class():
+{
+  Token t;
+  pw.write(".source Claus.j\n");
+  pw.write(".class public Claus\n");
+  pw.write(".super java/lang/Object\n");
+}
+{
+  <CLASS_KW> t=<ID> <LBRACE> ClassContent() <RBRACE>
+  <EOF>
+  {
+    //Pointer ClausClass = cRun.newClazz(Util.str2bytes("ClausClass"), null);
+    pw.close();
+    jjtThis.value = t.image;
+    return jjtThis;
+  }
+}
+
+/* Class content */
+void ClassContent():
+{}
+{
+  (Variable() | Method() | EntryPointMethod())*
+}
+
+/* Variable */
+void Variable():
+{}
+{
+  <VAR_KW> <ID> [<COLON> <ID> [<LBRACKET> <RBRACKET>]] <DECLARATION_EQUALS> Expression()
+  {
+    pw.write("\n"); // push variable
+  }
+}
+
+/* Method */
+void Method():
+{
+  pw.write(".method public \n");
+}
+{
+  <DEF_KW> <ID> <LPAREN> MethodParams() <RPAREN> <COLON> <ID> [<LBRACKET> <RBRACKET>] <DECLARATION_EQUALS> <LBRACE> MethodContent() <RBRACE>
+  {
+    pw.write(".end method\n");
+  }
+}
+
+void MethodParams():
+{}
+{
+   [<ID> <COLON> <ID> [<LBRACKET> <RBRACKET>] [<COMMA> MethodParams()]]
+}
+
+void MethodContent():
+{}
+{
+  (CodeBlock())*
+  {
+    pw.write("return\n");
+  }
+}
+
+/* Entry point method */
+void EntryPointMethod():
+{
+  pw.write(".method public <init>()V\n");
+  pw.write(".limit stack 1024\n");
+  pw.write(".limit locals 256\n");
+  pw.write("aload_0\n");
+  pw.write("invokenonvirtual java/lang/Object/<init>()V\n");
+}
+{
+  <ENTRYPOINT_KW> <LBRACE> MethodContent() <RBRACE>
+  {
+    pw.write(".end method\n");
+  }
+}
+
+/* Code block */
+void CodeBlock():
+{}
+{
+  LOOKAHEAD(2)
+  Variable()
+| Assignment()
+| MethodCalling()
+| IfCondition()
+| ForLoop()
+| WhileLoop()
+| ReturnStatement()
+}
+
+/* Expression */
+void Expression():
+{}
+{
+  LOOKAHEAD(2)
+  Value()
+| Math()
+| NewInstance()
+}
+
+/* Assignment */
+void Assignment():
+{}
+{
+  <ID> [<LBRACKET> Expression() <RBRACKET>] <DECLARATION_EQUALS> Expression()
+}
+
+/* Method calling */
+void MethodCalling():
+{}
+{
+  LOOKAHEAD(2)
+  <ID> <PERIOD> <ID> <LPAREN> [Expression() (<COMMA> Expression())*] <RPAREN>
+| <ID> <LPAREN> [Expression() (<COMMA> Expression())*] <RPAREN>
+}
+
+/* Condition */
+void Condition():
+{}
+{
+  Expression() (<LT> | <GT> | <EQUALS> | <NOT_EQUALS>) Expression()
+}
+
+/* IF condition */
+void IfCondition():
+{}
+{
+  <IF_KW> <LPAREN> Condition() <RPAREN> <LBRACE> (CodeBlock())* <RBRACE>
+  [<ELSE_KW> <LBRACE> (CodeBlock())* <RBRACE>]
+}
+
+/* FOR loop */
+void ForLoop():
+{}
+{
+  <FOR_KW> <LPAREN> <ID> <FOR_ARROW_KW> Expression() <PERIOD> <PERIOD> Expression() <RPAREN> <LBRACE> (CodeBlock())* <RBRACE>
+}
+
+/* WHILE loop */
+void WhileLoop():
+{}
+{
+  <WHILE_KW> <LPAREN> Condition() <RPAREN> <LBRACE> (CodeBlock())* <RBRACE>
+}
+
+/* Return */
+void ReturnStatement():
+{}
+{
+  <RETURN_KW> Expression()
+}
+
+/* Value */
+void Value():
+{
+  Object obj;
+  byte[] val;
+}
+{
+  LOOKAHEAD(2)
+(
+  (
+    obj = <INTEGER>
+    {
+      val = Util.int2bytes((int)obj);
+    }
+  )
+| (
+    obj = <STRING>
+    {
+      val = Util.str2bytes((String)obj);
+    }
+  )
+| (
+    <TRUE_KW>
+    {
+      val = Util.int2bytes(1);
+    }
+  )
+| (
+    <FALSE_KW>
+    {
+      val = Util.int2bytes(0);
+    }
+  )
+| <ID> [<LBRACKET> Expression() <RBRACKET>]
+| MethodCalling()
+)
+{
+    pw.write("bastore " + val + "\n"); // TODO - reference!
+}
+}
+
+/* Math */
+void Math():
+{}
+{
+  <LPAREN> MathTerm() MathExp() <RPAREN>
+}
+
+void MathExp():
+{}
+{
+  [((
+      <PLUS>
+      {
+        // add (iadd)
+      }
+    )
+    | (
+      <MINUS>
+      {
+        // sub (isub)
+      }
+    )
+    ) 
+    MathTerm() MathExp()]
+}
+
+void MathTerm():
+{
+  int val;
+}
+{
+  ((
+    val = <INTEGER>
+    {
+      pw.write("ldc " + val + "\n");
+    }
+    ) | <ID> | Math()) MathTerms()
+}
+
+void MathTerms():
+{}
+{
+  [(<MULTIPLICATION> | <DIVISION> | <MODULO> | <POWER>) (<INTEGER> | <ID> | Math()) MathTerms()]
+}
+
+/* New instance */
+void NewInstance():
+{}
+{
+  <NEW_KW> <ID> [<LBRACKET> Expression() <RBRACKET>]
+}
