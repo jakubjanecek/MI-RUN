@@ -2,6 +2,8 @@ package vm;
 
 import vm.mm.*;
 
+import java.io.*;
+import java.util.ArrayList;
 import java.util.List;
 
 import static java.util.Arrays.asList;
@@ -21,6 +23,9 @@ public class Claus {
 
     private Pointer classOfInteger;
 
+    private List<FileInputStream> inputHandles;
+    private List<FileOutputStream> outputHandles;
+
     public static void main(String... args) {
         new Claus(new MM(1024, 1024, 1024));
     }
@@ -39,9 +44,13 @@ public class Claus {
         interpret();
     }
 
-    private void bootstrap() {
+    private final void bootstrap() {
+        inputHandles = new ArrayList<FileInputStream>();
+        outputHandles = new ArrayList<FileOutputStream>();
+
         metaclass = newClazz(str2bytes("Metaclass"));
-        classOfObject = newClazz(str2bytes("Object"), mm.NULL);
+        // Object does not have a superclass! Needs to be specified directly here!
+        classOfObject = newClazz(str2bytes("Object"), 0, mm.NULL);
         metaclass.$c().metaclass(metaclass);
         metaclass.$c().superclass(classOfObject);
 
@@ -50,13 +59,10 @@ public class Claus {
         Pointer methodDictionaryOfObject = newMethodDictionary(asList(new Integer[]{newMethod("getObjectID", methodPointer, 0)}));
         classOfObject.$c().methods(methodDictionaryOfObject);
 
+        // TODO prepare internal classes such as Array and String
+        classOfInteger = createIntegerClass();
+        classOfString = createStringClass();
         classOfArray = newClazz(str2bytes("Array"));
-        classOfString = newClazz(str2bytes("String"));
-        classOfInteger = newClazz(str2bytes("Integer"));
-
-        // TODO
-        // prepare classes such as Integer, String, Array and so on
-        // necessary to add methdos to them
     }
 
     public Pointer newObject(Pointer clazz, int size) {
@@ -74,18 +80,24 @@ public class Claus {
     }
 
     public Pointer newClazz(byte[] name) {
-        return newClazz(name, null);
+        return newClazz(name, 0, null);
     }
 
-    public Pointer newClazz(byte[] name, Pointer superclass) {
-        Pointer newClass = mm.alloc(mm.pointerIndexedObjectSize(4));
+    public Pointer newClazz(byte[] name, int numOfFields) {
+        return newClazz(name, numOfFields, null);
+    }
+
+    public Pointer newClazz(byte[] name, int numOfFields, Pointer superclass) {
+        int CLASS_SIZE = 5;
+
+        Pointer newClass = mm.alloc(mm.pointerIndexedObjectSize(CLASS_SIZE));
 
         if (newClass == null) {
             throw new RuntimeException("Not enough memory!");
         }
 
         newClass.$().kind(ObjectKind.POINTER_INDEXED);
-        newClass.$().size(4);
+        newClass.$().size(CLASS_SIZE);
 
         if (metaclass != null) {
             newClass.$().clazz(metaclass);
@@ -95,6 +107,8 @@ public class Claus {
             superclass = classOfObject;
         }
         newClass.$c().superclass(superclass);
+
+        newClass.$c().objectSize(newInteger(int2bytes(numOfFields)));
 
         newClass.$c().name(newString(name));
         newClass.$c().methods(mm.NULL);
@@ -159,12 +173,12 @@ public class Claus {
         while (interpret) {
             byte instruction = mm.getByteFromBC();
             switch (instruction) {
-                // syscall
+                // syscall syscall-number
                 case 0x01:
                     int syscall = mm.getIntFromBC();
                     Syscalls.ints2calls.get(syscall).call();
                     break;
-                // call
+                // call selector-pointer
                 case 0x02:
                     String methodSelector = bytes2str(mm.getPointerFromBC().$b().bytes());
                     callMethod(mm.popPointer(), methodSelector);
@@ -178,13 +192,133 @@ public class Claus {
                         jump(jumpAddress);
                     }
                     break;
-                // push-ref
+                // return-top
                 case 0x04:
+                    Pointer returnValue = mm.popPointer();
+                    jumpAddress = mm.discardFrame();
+                    mm.pushPointer(returnValue);
+                    if (jumpAddress == null) {
+                        interpret = false;
+                    } else {
+                        jump(jumpAddress);
+                    }
+                    break;
+                // new clazz-pointer
+                case 0x05:
+                    Pointer clazz = mm.getPointerFromBC();
+                    Pointer obj = newObject(clazz, bytes2int(clazz.$c().objectSize().$b().bytes()));
+                    mm.pushPointer(obj);
+                    break;
+                // get-field index
+                case 0x06:
+                    int index = mm.getIntFromBC();
+                    obj = mm.popPointer();
+                    mm.pushPointer(obj.$p().field(index));
+                    break;
+                // set-field index pointer
+                case 0x07:
+                    index = mm.getIntFromBC();
+                    Pointer setValue = mm.getPointerFromBC();
+                    obj = mm.popPointer();
+                    obj.$p().field(index, setValue);
+                    break;
+                // push-ref pointer
+                case 0x08:
                     mm.pushPointer(mm.getPointerFromBC());
                     break;
                 // pop-ref
-                case 0x05:
+                case 0x09:
                     mm.popPointer();
+                    break;
+                // push-int number
+                case 0x0A:
+                    mm.pushInt(mm.getIntFromBC());
+                    break;
+                // pop-int
+                case 0xB:
+                    mm.popInt();
+                    break;
+                // push-local index val-pointer
+                case 0x0C:
+                    index = mm.getIntFromBC();
+                    obj = mm.getPointerFromBC();
+                    mm.local(index, obj);
+                    break;
+                // pop-local index
+                case 0x0D:
+                    index = mm.getIntFromBC();
+                    mm.pushPointer(mm.local(index));
+                    break;
+                // add-int
+                case 0x0E:
+                    Pointer operand2 = mm.popPointer();
+                    Pointer operand1 = mm.popPointer();
+                    int sum = bytes2int(operand1.$b().bytes()) + bytes2int(operand2.$b().bytes());
+                    mm.pushPointer(newInteger(int2bytes(sum)));
+                    break;
+                // sub-int
+                case 0x0F:
+                    operand2 = mm.popPointer();
+                    operand1 = mm.popPointer();
+                    int diff = bytes2int(operand1.$b().bytes()) - bytes2int(operand2.$b().bytes());
+                    mm.pushPointer(newInteger(int2bytes(diff)));
+                    break;
+                // mul-int
+                case 0x10:
+                    operand2 = mm.popPointer();
+                    operand1 = mm.popPointer();
+                    int product = bytes2int(operand1.$b().bytes()) * bytes2int(operand2.$b().bytes());
+                    mm.pushPointer(newInteger(int2bytes(product)));
+                    break;
+                // div-int
+                case 0x11:
+                    operand2 = mm.popPointer();
+                    operand1 = mm.popPointer();
+                    int division = bytes2int(operand1.$b().bytes()) / bytes2int(operand2.$b().bytes());
+                    mm.pushPointer(newInteger(int2bytes(division)));
+                    break;
+                // mod-int
+                case 0x12:
+                    operand2 = mm.popPointer();
+                    operand1 = mm.popPointer();
+                    int modulo = bytes2int(operand1.$b().bytes()) % bytes2int(operand2.$b().bytes());
+                    mm.pushPointer(newInteger(int2bytes(modulo)));
+                    break;
+                // push-arg index val-pointer
+                case 0x13:
+                    index = mm.getIntFromBC();
+                    obj = mm.getPointerFromBC();
+                    mm.arg(index, obj);
+                    break;
+                // pop-arg index
+                case 0x14:
+                    index = mm.getIntFromBC();
+                    mm.pushPointer(mm.arg(index));
+                    break;
+                // set-bytes number
+                case 0x15:
+                    int number = mm.getIntFromBC();
+                    obj = mm.popPointer();
+                    obj.$b().bytes(int2bytes(number));
+                    break;
+                // new-int
+                case 0x16:
+                    obj = newInteger(int2bytes(mm.getIntFromBC()));
+                    mm.pushPointer(obj);
+                    break;
+                // new-str
+                case 0x17:
+                    int numOfBytes = mm.getIntFromBC();
+                    byte[] strBytes = new byte[numOfBytes];
+                    for (int i = 0; i < numOfBytes; i++) {
+                        strBytes[i] = mm.getByteFromBC();
+                    }
+                    obj = newString(strBytes);
+                    mm.pushPointer(obj);
+                    break;
+                // new-arr
+                case 0x18:
+                    // TODO implement new-arr
                     break;
                 // NOP = no operation
                 case 0x00:
@@ -201,6 +335,7 @@ public class Claus {
         Method method = lookupMethod(objectClass, selector);
 
         if (method != null) {
+            mm.pushPointer(obj);
             mm.newFrame(method.numOfLocals());
             jump(method.bytecodePointer());
         } else {
@@ -240,13 +375,72 @@ public class Claus {
         mm.setPC(where);
     }
 
-    // OTHER INSTRUCTIONS WE WILL POSSIBLY NEED
-    // open-file
-    // read-char
-    // read-line
-    // write-char
-    // write-line
-    // close-file
+    private Pointer createIntegerClass() {
+        Pointer clazz = newClazz(str2bytes("Integer"), MM.WORD_SIZE);
+
+        String[] plusBC = new String[]{
+                "pop-arg 1",
+                "pop-arg 0",
+                "add-int",
+                "return-top"
+        };
+        CodePointer plusMethod = mm.storeCode(Util.translateBytecode(plusBC));
+
+        String[] minusBC = new String[]{
+                "pop-arg 1",
+                "pop-arg 0",
+                "sub-int",
+                "return-top"
+        };
+        CodePointer minusMethod = mm.storeCode(Util.translateBytecode(minusBC));
+
+        String[] multiBC = new String[]{
+                "pop-arg 1",
+                "pop-arg 0",
+                "mul-int",
+                "return-top"
+        };
+        CodePointer multiMethod = mm.storeCode(Util.translateBytecode(multiBC));
+
+        String[] divBC = new String[]{
+                "pop-arg 1",
+                "pop-arg 0",
+                "div-int",
+                "return-top"
+        };
+        CodePointer divMethod = mm.storeCode(Util.translateBytecode(divBC));
+
+        String[] modBC = new String[]{
+                "pop-arg 1",
+                "pop-arg 0",
+                "mod-int",
+                "return-top"
+        };
+        CodePointer modMethod = mm.storeCode(Util.translateBytecode(modBC));
+
+        Pointer methodDictionaryOfObject = newMethodDictionary(asList(new Integer[]{
+                newMethod("add", plusMethod, 0),
+                newMethod("subtract", minusMethod, 0),
+                newMethod("multiply", multiMethod, 0),
+                newMethod("divide", divMethod, 0),
+                newMethod("modulo", modMethod, 0),
+        }));
+        clazz.$c().methods(methodDictionaryOfObject);
+
+        return clazz;
+    }
+
+    private Pointer createStringClass() {
+        Pointer clazz = newClazz(str2bytes("String"));
+
+        Pointer methodDictionaryOfObject = newMethodDictionary(asList(new Integer[]{
+//                        newMethod("add", plusMethod, 0),
+        }));
+        clazz.$c().methods(methodDictionaryOfObject);
+
+        return clazz;
+    }
+
     private void syscalls() {
         Syscalls.ints2calls.put(1, new Syscall("print") {
             @Override
@@ -255,6 +449,103 @@ public class Claus {
             }
         });
 
+        Syscalls.ints2calls.put(2, new Syscall("open-file-r") {
+            @Override
+            public void call() {
+                String filename = bytes2str(mm.popPointer().$b().bytes());
+                FileInputStream fis = null;
+                try {
+                    fis = new FileInputStream(filename);
+                } catch (FileNotFoundException e) {
+                    throw new RuntimeException("File '" + filename + "' does not exist.");
+                }
+
+                inputHandles.add(fis);
+                int index = inputHandles.indexOf(fis);
+                mm.pushPointer(newInteger(int2bytes(index)));
+            }
+        });
+
+        Syscalls.ints2calls.put(3, new Syscall("open-file-w") {
+            @Override
+            public void call() {
+                String filename = bytes2str(mm.popPointer().$b().bytes());
+                FileOutputStream fos = null;
+                try {
+                    fos = new FileOutputStream(filename);
+                } catch (FileNotFoundException e) {
+                    throw new RuntimeException("File '" + filename + "' does not exist.");
+                }
+
+                outputHandles.add(fos);
+                int index = outputHandles.indexOf(fos);
+                mm.pushPointer(newInteger(int2bytes(index)));
+            }
+        });
+
+        Syscalls.ints2calls.put(4, new Syscall("close-file-r") {
+            @Override
+            public void call() {
+                int handle = bytes2int(mm.popPointer().$b().bytes());
+                Closeable closeable = inputHandles.get(handle);
+                try {
+                    closeable.close();
+                } catch (IOException e) {
+                    throw new RuntimeException("File could not be closed.");
+                }
+            }
+        });
+
+        Syscalls.ints2calls.put(5, new Syscall("close-file-w") {
+            @Override
+            public void call() {
+                int handle = bytes2int(mm.popPointer().$b().bytes());
+                Closeable closeable = outputHandles.get(handle);
+                try {
+                    closeable.close();
+                } catch (IOException e) {
+                    throw new RuntimeException("File could not be closed.");
+                }
+            }
+        });
+
+        Syscalls.ints2calls.put(6, new Syscall("read-line") {
+            @Override
+            public void call() {
+                int handle = bytes2int(mm.popPointer().$b().bytes());
+                FileInputStream fis = inputHandles.get(handle);
+                BufferedReader br = new BufferedReader(new InputStreamReader(fis));
+                try {
+                    Pointer str = newString(str2bytes(br.readLine()));
+                    mm.pushPointer(str);
+                } catch (IOException e) {
+                    throw new RuntimeException("IO error while reading file.");
+                }
+            }
+        });
+
+        Syscalls.ints2calls.put(7, new Syscall("write-line") {
+            @Override
+            public void call() {
+                String str = bytes2str(mm.popPointer().$b().bytes());
+                int handle = bytes2int(mm.popPointer().$b().bytes());
+                FileOutputStream fos = outputHandles.get(handle);
+                BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fos));
+                try {
+                    bw.write(str);
+                    bw.flush();
+                } catch (IOException e) {
+                    throw new RuntimeException("IO error while writing file.");
+                }
+            }
+        });
+
+        Syscalls.ints2calls.put(8, new Syscall("print-int") {
+            @Override
+            public void call() {
+                System.out.println(bytes2int(mm.popPointer().$b().bytes()));
+            }
+        });
 
         // needs to be called
         Syscalls.generateReversedTable();

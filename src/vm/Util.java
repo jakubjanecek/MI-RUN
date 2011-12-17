@@ -1,5 +1,8 @@
 package vm;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Util {
 
     public static String bytes2str(byte[] bytes) {
@@ -28,5 +31,35 @@ public class Util {
 
     public static Byte int2Byte(int b) {
         return new Byte((byte) b);
+    }
+
+    public static byte[] translateBytecode(String[] lines) {
+        List<Byte> output = new ArrayList<Byte>();
+
+        for (String line : lines) {
+            String[] parts = line.split(" ");
+            Bytecode.BytecodeInstruction opcode = Bytecode.strings2bytecodes.get(parts[0]);
+
+            output.add(opcode.code);
+
+            for (int i = 1; i <= opcode.numOfArguments; i++) {
+                String arg = parts[i];
+                try {
+                    Integer intVal = Integer.valueOf(arg);
+                    for (byte b : int2bytes(intVal)) {
+                        output.add(b);
+                    }
+                } catch (NumberFormatException ex) {
+
+                }
+            }
+        }
+
+        Byte[] out1 = output.toArray(new Byte[0]);
+        byte[] out2 = new byte[out1.length];
+        for (int i = 0; i < out1.length; i++) {
+            out2[i] = out1[i];
+        }
+        return out2;
     }
 }

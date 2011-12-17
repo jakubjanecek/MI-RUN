@@ -34,4 +34,16 @@ public class UtilTest {
         assertEquals(num, Util.bytes2int(bytes));
     }
 
+    @Test
+    public void translateBytecode() {
+        byte[] output = Util.translateBytecode(new String[]{
+                "push-ref 100",
+                "call 108"
+        });
+
+        byte[] expected = new byte[]{Bytecode.strings2bytecodes.get("push-ref").code, 0, 0, 0, 100, Bytecode.strings2bytecodes.get("call").code, 0, 0, 0, 108};
+
+        assertArrayEquals(expected, output);
+    }
+
 }
