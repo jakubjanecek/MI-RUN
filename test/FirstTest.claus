@@ -1,0 +1,12 @@
+class FirstTest {
+
+  entry-point {
+    var ft = new FirstTest
+    ft.run()
+  }
+
+  def run() : Nothing = {
+    println("Oukeeej... :)")
+  }
+  
+}

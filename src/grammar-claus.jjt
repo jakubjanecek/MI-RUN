@@ -1,5 +1,5 @@
 options {
-  DEBUG_PARSER = true;
+  //DEBUG_PARSER = true;
   STATIC = false;
   MULTI = true;
 }
