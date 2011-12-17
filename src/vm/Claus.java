@@ -159,12 +159,12 @@ public class Claus {
         while (interpret) {
             byte instruction = mm.getByteFromBC();
             switch (instruction) {
-                // syscall
+                // syscall syscall-number
                 case 0x01:
                     int syscall = mm.getIntFromBC();
                     Syscalls.ints2calls.get(syscall).call();
                     break;
-                // call
+                // call selector-pointer
                 case 0x02:
                     String methodSelector = bytes2str(mm.getPointerFromBC().$b().bytes());
                     callMethod(mm.popPointer(), methodSelector);
@@ -178,13 +178,98 @@ public class Claus {
                         jump(jumpAddress);
                     }
                     break;
-                // push-ref
+                // return-top
                 case 0x04:
+                    Pointer returnValue = mm.popPointer();
+                    jumpAddress = mm.discardFrame();
+                    mm.pushPointer(returnValue);
+                    if (jumpAddress == null) {
+                        interpret = false;
+                    } else {
+                        jump(jumpAddress);
+                    }
+                    break;
+                // new clazz-pointer
+                case 0x05:
+                    Pointer clazz = mm.popPointer();
+                    // TODO what to do about size?
+                    Pointer obj = newObject(clazz, 0);
+                    mm.pushPointer(obj);
+                    break;
+                // get-field index
+                case 0x06:
+                    int index = mm.getIntFromBC();
+                    obj = mm.popPointer();
+                    mm.pushPointer(obj.$p().field(index));
+                    break;
+                // set-field index pointer
+                case 0x07:
+                    index = mm.getIntFromBC();
+                    Pointer setValue = mm.getPointerFromBC();
+                    obj = mm.popPointer();
+                    obj.$p().field(index, setValue);
+                    break;
+                // push-ref pointer
+                case 0x08:
                     mm.pushPointer(mm.getPointerFromBC());
                     break;
                 // pop-ref
-                case 0x05:
+                case 0x09:
                     mm.popPointer();
+                    break;
+                // push-int number
+                case 0x0A:
+                    mm.pushInt(mm.getIntFromBC());
+                    break;
+                // pop-int
+                case 0xB:
+                    mm.popInt();
+                    break;
+                // push-local index val-pointer
+                case 0x0C:
+                    index = mm.getIntFromBC();
+                    obj = mm.getPointerFromBC();
+                    mm.pushLocal(index, obj);
+                    break;
+                // pop-local index
+                case 0x0D:
+                    index = mm.getIntFromBC();
+                    mm.pushPointer(mm.popLocal(index));
+                    break;
+                // add-int
+                case 0x0E:
+                    Pointer operand2 = mm.popPointer();
+                    Pointer operand1 = mm.popPointer();
+                    int sum = bytes2int(operand1.$b().bytes()) + bytes2int(operand2.$b().bytes());
+                    mm.pushPointer(newInteger(int2bytes(sum)));
+                    break;
+                // sub-int
+                case 0x0F:
+                    operand2 = mm.popPointer();
+                    operand1 = mm.popPointer();
+                    int diff = bytes2int(operand1.$b().bytes()) - bytes2int(operand2.$b().bytes());
+                    mm.pushPointer(newInteger(int2bytes(diff)));
+                    break;
+                // mul-int
+                case 0x10:
+                    operand2 = mm.popPointer();
+                    operand1 = mm.popPointer();
+                    int product = bytes2int(operand1.$b().bytes()) * bytes2int(operand2.$b().bytes());
+                    mm.pushPointer(newInteger(int2bytes(product)));
+                    break;
+                // div-int
+                case 0x20:
+                    operand2 = mm.popPointer();
+                    operand1 = mm.popPointer();
+                    int division = bytes2int(operand1.$b().bytes()) / bytes2int(operand2.$b().bytes());
+                    mm.pushPointer(newInteger(int2bytes(division)));
+                    break;
+                // mod-int
+                case 0x30:
+                    operand2 = mm.popPointer();
+                    operand1 = mm.popPointer();
+                    int modulo = bytes2int(operand1.$b().bytes()) % bytes2int(operand2.$b().bytes());
+                    mm.pushPointer(newInteger(int2bytes(modulo)));
                     break;
                 // NOP = no operation
                 case 0x00:

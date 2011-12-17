@@ -138,6 +138,19 @@ public class MM {
         }
     }
 
+    public void pushLocal(int index, Pointer val) {
+        // caller + return address + local at position
+        int address = basePointer + WORD_SIZE + WORD_SIZE + (index * WORD_SIZE);
+        storePointer(stack, address, val);
+    }
+
+    public Pointer popLocal(int index) {
+        // caller + return address + local at position 
+        int address = basePointer + WORD_SIZE + WORD_SIZE + (index * WORD_SIZE);
+        Pointer p = retrievePointer(stack, address);
+        return p;
+    }
+
     public CodePointer storeCode(byte[] bytecode) {
         CodePointer p;
         if (firstFreeCodeByte + bytecode.length <= code.length) {

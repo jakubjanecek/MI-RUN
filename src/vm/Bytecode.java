@@ -13,16 +13,22 @@ public class Bytecode {
             put("syscall", new BytecodeInstruction(int2Byte(0x01), 1));
             put("call", new BytecodeInstruction(int2Byte(0x02), 1));
             put("return", new BytecodeInstruction(int2Byte(0x03), 0));
-            put("push-ref", new BytecodeInstruction(int2Byte(0x04), 1));
-            put("pop-ref", new BytecodeInstruction(int2Byte(0x05), 0));
+            put("return-top", new BytecodeInstruction(int2Byte(0x04), 0));
+            put("new", new BytecodeInstruction(int2Byte(0x05), 1));
+            put("get-field", new BytecodeInstruction(int2Byte(0x06), 1));
+            put("set-field", new BytecodeInstruction(int2Byte(0x07), 2));
+            put("push-ref", new BytecodeInstruction(int2Byte(0x08), 1));
+            put("pop-ref", new BytecodeInstruction(int2Byte(0x09), 0));
+            put("push-int", new BytecodeInstruction(int2Byte(0x0A), 1));
+            put("pop-int", new BytecodeInstruction(int2Byte(0x0B), 0));
+            put("push-local", new BytecodeInstruction(int2Byte(0x0C), 1));
+            put("pop-local", new BytecodeInstruction(int2Byte(0x0D), 1));
+            put("add-int", new BytecodeInstruction(int2Byte(0x0E), 0));
+            put("sub-int", new BytecodeInstruction(int2Byte(0x0F), 0));
+            put("mul-int", new BytecodeInstruction(int2Byte(0x10), 0));
+            put("div-int", new BytecodeInstruction(int2Byte(0x20), 0));
+            put("mod-int", new BytecodeInstruction(int2Byte(0x30), 0));
 
-            // OTHER INSTRUCTIONS WE WILL POSSIBLY NEED
-            // push-int, pop-int
-            // push-local, pop-local  (with index to local variables in the current stack frame)
-            // new
-            // get-field, set-field
-            // add, sub, mul, div, mod
-            // return-top
             // conditional jumps
             // labels??
         }

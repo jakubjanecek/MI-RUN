@@ -8,6 +8,7 @@ import vm.Util;
 import java.util.Arrays;
 
 import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertNull;
 import static vm.Util.*;
 
 public class MMTest {
@@ -60,6 +61,46 @@ public class MMTest {
 
         mm.popPointer();
         mm.popPointer();
+    }
+
+    @Test
+    public void stackLocals() {
+        mm.newFrame(3);
+
+        mm.pushLocal(1, vm.newInteger(int2bytes(123)));
+        mm.pushLocal(0, vm.newInteger(int2bytes(321)));
+        mm.pushLocal(2, vm.newInteger(int2bytes(999)));
+
+        assertEquals(321, bytes2int(mm.popLocal(0).$b().bytes()));
+        assertEquals(123, bytes2int(mm.popLocal(1).$b().bytes()));
+        assertEquals(999, bytes2int(mm.popLocal(2).$b().bytes()));
+
+        mm.pushLocal(1, vm.newInteger(int2bytes(852)));
+        assertEquals(852, bytes2int(mm.popLocal(1).$b().bytes()));
+
+        mm.pushInt(3);
+
+        mm.newFrame(2);
+
+        mm.pushLocal(1, vm.newInteger(int2bytes(2)));
+        mm.pushLocal(0, vm.newInteger(int2bytes(1)));
+
+        mm.pushInt(999);
+        mm.pushInt(853);
+
+        assertEquals(1, bytes2int(mm.popLocal(0).$b().bytes()));
+        assertEquals(2, bytes2int(mm.popLocal(1).$b().bytes()));
+        assertEquals(853, mm.popInt());
+
+        mm.discardFrame();
+
+        assertEquals(3, mm.popInt());
+
+        assertEquals(321, bytes2int(mm.popLocal(0).$b().bytes()));
+        assertEquals(852, bytes2int(mm.popLocal(1).$b().bytes()));
+        assertEquals(999, bytes2int(mm.popLocal(2).$b().bytes()));
+
+        assertNull(mm.discardFrame());
     }
 
 }
