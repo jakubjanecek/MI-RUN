@@ -6,17 +6,31 @@ options {
 
 PARSER_BEGIN(Claus)
 
-//package vm;
-
-import vm.mm.CodePointer;
-import vm.mm.MM;
-import vm.mm.Pointer;
+import vm.mm.*;
 
 class Claus {
-  public static void main(String[] args) throws ParseException, TokenMgrError {
-    Claus parser = new Claus(System.in);
-    System.out.println(parser.Class());
-    System.out.println("SUCCESS");
+  public static MM mem;
+  public static vm.Claus vim;
+  public Pointer inputClass;
+  
+  public static void main(String[] args) {
+    try {
+      // VM init
+      int size = 1024;
+      mem = new MM(size, size, size);
+      vim = new vm.Claus(mem);
+      
+      // Input parsing
+      Claus parser = new Claus(System.in);
+      System.out.println(parser.Class());
+      System.out.println("SUCCESS");
+    } catch (ParseException pe) {
+      System.err.println("Parse exception occured.");
+    } catch (TokenMgrError tme) {
+      System.err.println("Token exception occured.");
+    } catch (Exception e) {
+      System.err.println("Exception occured: " + e.getMessage());
+    }
   }
 }
 
@@ -72,6 +86,8 @@ ASTClass Class():
   <CLASS_KW> className=<ID> <LBRACE> ClassBody() <RBRACE>
   <EOF>
   {
+    inputClass = vim.newClazz(vm.Util.str2bytes(className.image), 1);
+    
     jjtThis.value = className.image;
     return jjtThis;
   }
@@ -93,12 +109,29 @@ void EntryPoint():
 {}
 {
   <ENTRYPOINT_KW> <LBRACE> MethodBody() <RBRACE>
+  {
+    Pointer objectObj = vim.newObject(inputClass, vm.Util.bytes2int(inputClass.$c().objectSize().$b().bytes()));
+    objectObj.$p().field(0, vim.newString(vm.Util.str2bytes("test1")));
+    
+    byte[] carRef = vm.Util.int2bytes(objectObj.address);
+    String[] entryPoint = new String[]{
+            "push-ref " + objectObj.address,
+            "call " + mem.addConstant("getObjectID"),
+            "push-ref " + objectObj.address,
+            "call " + mem.addConstant("drive"),
+            "return"
+    };
+    CodePointer entryPointPointer = mem.storeCode(vm.Util.translateBytecode(entryPoint));
+    vim.run(entryPointPointer);
+  }
 }
 
 void MethodDeclaration():
-{}
 {
-  <DEF_KW> <ID> <LPAREN> MethodArgumentDeclarationList() <RPAREN> TypeSpecifier() <DECLARATION_EQUALS> <LBRACE>
+  Token methodName;
+}
+{
+  <DEF_KW> methodName=<ID> <LPAREN> MethodArgumentDeclarationList() <RPAREN> TypeSpecifier() <DECLARATION_EQUALS> <LBRACE>
     MethodBody()
   <RBRACE>
 }
