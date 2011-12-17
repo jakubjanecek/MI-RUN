@@ -30,16 +30,14 @@ public class ClausTest {
     public void objectCreation() {
         Pointer classCar = vm.newClazz(str2bytes("Car"), 1);
 
-        byte[] stringRef = int2bytes(vm.newString(str2bytes("test syscall from method")).address);
-        byte[] printSyscall = int2bytes(Syscalls.calls2ints.get("print"));
-        byte[] methodBytecode = new byte[]{
-                Bytecode.strings2bytecodes.get("push-ref").code, stringRef[0], stringRef[1], stringRef[2], stringRef[3],
-                Bytecode.strings2bytecodes.get("syscall").code, printSyscall[0], printSyscall[1], printSyscall[2], printSyscall[3],
+        String[] methodBytecode = new String[]{
+                "push-ref " + vm.newString(str2bytes("test syscall from method")).address,
+                "syscall " + Syscalls.calls2ints.get("print"),
 
-                Bytecode.strings2bytecodes.get("return").code
+                "return"
         };
 
-        CodePointer methodPointer = mm.storeCode(methodBytecode);
+        CodePointer methodPointer = mm.storeCode(Util.translateBytecode(methodBytecode));
         Pointer methodDictionaryOfCar = vm.newMethodDictionary(asList(new Integer[]{vm.newMethod("drive", methodPointer, 0)}));
         classCar.$c().methods(methodDictionaryOfCar);
 
@@ -48,18 +46,16 @@ public class ClausTest {
 
         // entry-point
         byte[] carRef = int2bytes(objectCar.address);
-        byte[] getObjectIDMethodName = int2bytes(vm.newString(str2bytes("getObjectID")).address);
-        byte[] driveMethodName = int2bytes(vm.newString(str2bytes("drive")).address);
-        byte[] entryPoint = new byte[]{
-                Bytecode.strings2bytecodes.get("push-ref").code, carRef[0], carRef[1], carRef[2], carRef[3],
-                Bytecode.strings2bytecodes.get("call").code, getObjectIDMethodName[0], getObjectIDMethodName[1], getObjectIDMethodName[2], getObjectIDMethodName[3],
+        String[] entryPoint = new String[]{
+                "push-ref " + objectCar.address,
+                "call " + vm.newString(str2bytes("getObjectID")).address,
 
-                Bytecode.strings2bytecodes.get("push-ref").code, carRef[0], carRef[1], carRef[2], carRef[3],
-                Bytecode.strings2bytecodes.get("call").code, driveMethodName[0], driveMethodName[1], driveMethodName[2], driveMethodName[3],
+                "push-ref " + objectCar.address,
+                "call " + vm.newString(str2bytes("drive")).address,
 
-                Bytecode.strings2bytecodes.get("return").code
+                "return"
         };
-        CodePointer entryPointPointer = mm.storeCode(entryPoint);
+        CodePointer entryPointPointer = mm.storeCode(Util.translateBytecode(entryPoint));
 
         assertEquals("Car", bytes2str(objectCar.$().clazz().$c().name().$b().bytes()));
         assertEquals("test1", bytes2str(objectCar.$p().field(0).$b().bytes()));
