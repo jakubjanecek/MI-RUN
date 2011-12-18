@@ -2,9 +2,7 @@ package vm;
 
 import org.junit.Before;
 import org.junit.Test;
-import vm.mm.CodePointer;
-import vm.mm.MM;
-import vm.mm.Pointer;
+import vm.mm.*;
 
 import java.io.File;
 
@@ -27,8 +25,21 @@ public class ClausVMTest {
     }
 
     @Test
+    public void testObjectsAndClasses() {
+        Pointer carClass = vm.newClazz("Car", 5);
+        assertEquals(MM.MARKER, carClass.$().marker());
+        assertEquals(ObjectKind.POINTER_INDEXED, carClass.$().kind());
+        assertEquals(GCState.NORMAL, carClass.$().gcState());
+        assertEquals("Car", carClass.$c().name());
+        assertEquals(vm.getClazz("Metaclass"), carClass.$().clazz());
+
+        Pointer carObject1 = vm.newObject(carClass, carClass.$c().objectSize());
+        Pointer carObject2 = vm.newObject(vm.getClazz("Car"), vm.getClazz("Car").$c().objectSize());
+    }
+
+    @Test
     public void objectCreation() {
-        Pointer classCar = vm.newClazz(str2bytes("Car"), 1);
+        Pointer classCar = vm.newClazz("Car", 1);
 
         String[] methodBytecode = new String[]{
                 "push-ref " + vm.newString(str2bytes("test syscall from method")).address,
@@ -41,7 +52,7 @@ public class ClausVMTest {
         Pointer methodDictionaryOfCar = vm.newMethodDictionary(asList(new Integer[]{vm.newMethod("drive", methodPointer, 0)}));
         classCar.$c().methods(methodDictionaryOfCar);
 
-        Pointer objectCar = vm.newObject(classCar, bytes2int(classCar.$c().objectSize().$b().bytes()));
+        Pointer objectCar = vm.newObject(classCar, classCar.$c().objectSize());
         objectCar.$p().field(0, vm.newString(str2bytes("test1")));
 
         // entry-point
@@ -56,10 +67,10 @@ public class ClausVMTest {
         };
         CodePointer entryPointPointer = mm.storeCode(Util.translateBytecode(entryPoint));
 
-        assertEquals("Car", bytes2str(objectCar.$().clazz().$c().name().$b().bytes()));
+        assertEquals("Car", objectCar.$().clazz().$c().name());
         assertEquals("test1", bytes2str(objectCar.$p().field(0).$b().bytes()));
 
-        vm.run(entryPointPointer);
+        vm.run(entryPointPointer, 1);
     }
 
     @Test
@@ -70,7 +81,7 @@ public class ClausVMTest {
 
     @Test(expected = RuntimeException.class)
     public void nonexistingMethod() {
-        Pointer someClass = vm.newClazz(str2bytes("SomeClass"));
+        Pointer someClass = vm.newClazz("SomeClass");
         Pointer anObject = vm.newObject(someClass, 0);
 
         vm.callMethod(anObject, "nonexisting");
@@ -231,22 +242,32 @@ public class ClausVMTest {
 
     @Test
     public void testTextFileReader() {
+        System.out.println(vm.classOfReader.$c().name());
+        System.out.println(vm.classOfReader.$c().name().equals("TextFileReader"));
+        System.out.println(vm.classOfReader.$p().fieldInt(0));
+        System.out.println(mm.constant(vm.classOfReader.$p().fieldInt(0)));
+
+        System.out.println();
+        System.out.println();
+
+        vm.getClazz(vm.classOfReader.$c().name());
+
         String[] entryPoint = new String[]{
                 "new " + vm.getClazz("TextFileReader").address,
-                "push-local 0",
-                "push-ref " + vm.newString(str2bytes("/Users/platinix/test.txt")).address,
-                "pop-local 0",
-                "call " + mm.addConstant("open"),
-
-                "pop-local 0",
-                "call " + mm.addConstant("readLine"),
-                "syscall " + Syscalls.calls2ints.get("print"),
-                "pop-local 0",
-                "call " + mm.addConstant("readLine"),
-                "syscall " + Syscalls.calls2ints.get("print"),
-
-                "pop-local 0",
-                "call " + mm.addConstant("close"),
+//                "push-local 0",
+//                "push-ref " + vm.newString(str2bytes("/Users/platinix/test.txt")).address,
+//                "pop-local 0",
+//                "call " + mm.addConstant("open"),
+//
+//                "pop-local 0",
+//                "call " + mm.addConstant("readLine"),
+//                "syscall " + Syscalls.calls2ints.get("print"),
+//                "pop-local 0",
+//                "call " + mm.addConstant("readLine"),
+//                "syscall " + Syscalls.calls2ints.get("print"),
+//
+//                "pop-local 0",
+//                "call " + mm.addConstant("close"),
 
                 "return"
         };

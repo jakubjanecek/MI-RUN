@@ -28,6 +28,15 @@ public class Pointer {
     }
 
     /**
+     * Unsafe (without null check) pointer dereference.
+     *
+     * @return MM.Obj
+     */
+    public MM.Obj $unsafe() {
+        return mm.new Obj(this);
+    }
+
+    /**
      * Pointer dereference.
      *
      * @return MM.PointerIndexedObj

@@ -55,7 +55,7 @@ public class BytecodeInterpreter {
                 // new clazz-pointer
                 case 0x05:
                     Pointer clazz = mm.getPointerFromBC();
-                    Pointer obj = vm.newObject(clazz, bytes2int(clazz.$c().objectSize().$b().bytes()));
+                    Pointer obj = vm.newObject(clazz, clazz.$c().objectSize());
                     mm.pushPointer(obj);
                     break;
                 // get-field

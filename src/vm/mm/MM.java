@@ -4,11 +4,7 @@ import vm.Bytecode;
 import vm.Util;
 
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-import static vm.Util.bytes2int;
+import java.util.*;
 
 public class MM {
 
@@ -18,12 +14,12 @@ public class MM {
 
     public static final int REF_SIZE = WORD_SIZE;
 
-    // MARKER + OBJ_KIND + SIZE + CLASS
-    public static final int HEADER_SIZE = 1 + 1 + WORD_SIZE + REF_SIZE;
+    // MARKER + OBJ_KIND + GC_STATE + SIZE + CLASS
+    public static final int HEADER_SIZE = 1 + 1 + 1 + WORD_SIZE + REF_SIZE;
 
-    private static final byte MARKER = (byte) 0xF0;
+    public static final byte MARKER = (byte) 0xF0;
 
-    public static final byte FREE_MARKER = (byte) 0x0;
+    public static final byte FREE_MARKER = (byte) -1;
 
     public final Pointer NULL = new Pointer(0xFFFFFFFF, this);
 
@@ -31,7 +27,11 @@ public class MM {
     private int firstFreeCodeByte = 0;
 
     private byte[] heap;
-    private int firstFreeHeapByte = 0;
+    private int firstFreeHeapByte;
+
+    boolean firstSpace;
+    private int[] space1;
+    private int[] space2;
 
     private byte[] stack;
     private int stackPointer = 0;
@@ -43,25 +43,212 @@ public class MM {
 
     private CodePointer programCounter = new CodePointer(0, this);
 
+    private List<Pointer> classes;
+    private List<Pointer> methodDictionaries;
+
     public MM(int codeSize, int heapSize, int stackSize) {
         code = new byte[codeSize];
         heap = new byte[heapSize];
         stack = new byte[stackSize];
         methods = new ArrayList<Method>();
         constantPool = new ArrayList<Object>();
+        this.classes = new ArrayList<Pointer>();
+        this.methodDictionaries = new ArrayList<Pointer>();
+
+        space1 = new int[]{0, heapSize / 2};
+        space2 = new int[]{heapSize / 2, heapSize};
+        firstSpace = true;
+        firstFreeHeapByte = space1[0];
     }
 
     public Pointer alloc(int size) {
-        Pointer p = null;
-        if (firstFreeHeapByte + size <= heap.length) {
+        System.out.println("Trying to allocate " + size + " bytes at " + firstFreeHeapByte);
+        Pointer p;
+        int max = firstSpace ? space1[1] : space2[1];
+        if (firstFreeHeapByte + size <= max) {
             p = new Pointer(firstFreeHeapByte, this);
             clear(heap, firstFreeHeapByte, size);
             firstFreeHeapByte += size;
         } else {
             // garbage collection
+            int baker = baker();
+            flip();
+
+            firstFreeHeapByte = baker;
+
+            System.out.println("After Baker: " + firstFreeHeapByte);
+
+            max = firstSpace ? space1[1] : space2[1];
+            if (firstFreeHeapByte + size <= max) {
+                p = new Pointer(firstFreeHeapByte, this);
+                clear(heap, firstFreeHeapByte, size);
+                firstFreeHeapByte += size;
+            } else {
+                throw new RuntimeException("Not enough memory!");
+            }
         }
 
+        System.out.println("Allocated " + size + " bytes at " + p.address);
         return p;
+    }
+
+    public int baker() {
+        System.out.println("Starting Baker...");
+
+        Set<Pointer> rootSet = new HashSet<Pointer>(classes);
+        rootSet.addAll(methodDictionaries);
+        rootSet.addAll(scanStack());
+
+        int nextAllocationPointer = firstSpace ? space2[0] : space1[0];
+        int scanPointer = nextAllocationPointer;
+
+        int objectSizeInBytes = 0;
+
+        Map<Integer, Integer> stackReplaceTable = new HashMap<Integer, Integer>();
+
+        for (Pointer root : rootSet) {
+            System.out.println("Baker: copying root " + root.address + " at " + nextAllocationPointer);
+            objectSizeInBytes = copyObject(root, nextAllocationPointer);
+
+            System.out.println("putting for replacement " + root.address);
+            stackReplaceTable.put(root.address, nextAllocationPointer);
+
+            // setting GC state
+            root.$().gcState(GCState.COPIED);
+
+            // setting forward pointer, misusing class pointer because we don't need it anymore
+            root.$().clazz(new Pointer(nextAllocationPointer, this));
+
+            root.address = nextAllocationPointer;
+
+            nextAllocationPointer += objectSizeInBytes;
+
+            System.out.println("NEXT: " + nextAllocationPointer);
+        }
+
+        while (scanPointer <= nextAllocationPointer) {
+            System.out.println("SCAN POINTER: " + scanPointer);
+
+            Pointer obj = new Pointer(scanPointer, this);
+
+            int objectSize;
+
+            if (obj.$().kind() == ObjectKind.POINTER_INDEXED) {
+                objectSize = pointerIndexedObjectSize(obj.$().size());
+
+                int size = obj.$().size();
+
+                for (int i = 0; i < size; i++) {
+                    Pointer field = obj.$p().field(i);
+
+                    if (field.address >= 0) {
+                        if (field.$().gcState() == GCState.NORMAL) {
+                            if (field.$().marker() == MARKER) {
+                                System.out.println("Baker: copying field " + field.address + " at " + nextAllocationPointer);
+                                objectSizeInBytes = copyObject(field, nextAllocationPointer);
+
+                                obj.$p().field(i, new Pointer(nextAllocationPointer, this));
+
+                                field.$().gcState(GCState.COPIED);
+                                field.$().clazz(new Pointer(nextAllocationPointer, this));
+
+                                nextAllocationPointer += objectSizeInBytes;
+                            } else {
+                                //  it is not a normal pointer-based object
+                                // it is a method dictionary containing indexes of methods
+                                // doesn't need to be copied, already there
+                            }
+                        } else {
+                            System.out.println("Baker: using FP " + field.address + " at " + field.$().clazz().address);
+
+                            // using the forward pointer
+                            obj.$p().field(i, field.$().clazz());
+                        }
+                    }
+                }
+            } else {
+                objectSize = byteIndexedObjectSize(obj.$().size());
+            }
+
+            scanPointer += objectSize;
+        }
+
+        replaceOnStack(stackReplaceTable);
+
+        return nextAllocationPointer;
+    }
+
+    private int copyObject(Pointer obj, int to) {
+        int objectSize = 0;
+        switch (obj.$().kind()) {
+            case POINTER_INDEXED:
+                objectSize = pointerIndexedObjectSize(obj.$().size());
+                break;
+            case BYTE_INDEXED:
+                objectSize = byteIndexedObjectSize(obj.$().size());
+                break;
+        }
+
+        System.out.println("Copying object " + obj.address + " to " + to + " size " + objectSize);
+        System.arraycopy(heap, obj.address, heap, to, objectSize);
+
+        return objectSize;
+    }
+
+    public Set<Pointer> scanStack() {
+        Set<Pointer> active = new HashSet<Pointer>();
+
+        int gcStackPointer = 0;
+        while (gcStackPointer <= stackPointer) {
+            Pointer p = retrievePointer(stack, gcStackPointer);
+            if (p.address >= 0) {
+                // is object
+                if (p.$unsafe().marker() == MARKER) {
+                    System.out.println("@@@ " + p.address + " # " + gcStackPointer);
+                    active.add(retrievePointer(stack, gcStackPointer));
+                } else {
+                    // skipping not objects - integers such as return address and caller frame address
+                }
+            }
+
+            gcStackPointer += REF_SIZE;
+        }
+
+        System.out.println("Found " + active.size() + " on stack...");
+
+        return active;
+    }
+
+    public void replaceOnStack(Map<Integer, Integer> table) {
+        int gcStackPointer = 0;
+        while (gcStackPointer <= stackPointer) {
+            Pointer p = retrievePointer(stack, gcStackPointer);
+            if (p.address >= 0) {
+                // is object
+                if (p.$unsafe().marker() == MARKER) {
+                    if (table.containsKey(p.address)) {
+                        System.out.println("replacing on stack: " + p.address + " => " + (int) table.get(p.address));
+                        storeInt(stack, gcStackPointer, table.get(p.address));
+                    }
+                } else {
+                    // skipping not objects - integers such as return address and caller frame address
+                }
+            }
+
+            gcStackPointer += WORD_SIZE;
+        }
+    }
+
+    private void flip() {
+        if (firstSpace) {
+            firstSpace = false;
+            firstFreeHeapByte = space2[0];
+            clear(heap, space1[0], space1[1]);
+        } else {
+            firstSpace = true;
+            firstFreeHeapByte = space1[0];
+            clear(heap, space2[0], space2[1]);
+        }
     }
 
     public void free(Pointer obj) {
@@ -87,11 +274,15 @@ public class MM {
 
     public CodePointer discardFrame() {
         int currentBasePointer = basePointer;
-        int caller = bytes2int(Arrays.copyOfRange(stack, basePointer, basePointer + WORD_SIZE));
-        int returnAddress = bytes2int(Arrays.copyOfRange(stack, basePointer + WORD_SIZE, basePointer + (2 * WORD_SIZE)));
+        int currentStackPointer = stackPointer;
+
+        int caller = retrieveInt(stack, basePointer);
+        int returnAddress = retrieveInt(stack, basePointer + WORD_SIZE);
 
         basePointer = caller;
         stackPointer = currentBasePointer;
+
+        clear(stack, currentBasePointer, currentStackPointer);
 
         if (caller == NULL.address) {
             // end of the program
@@ -187,6 +378,22 @@ public class MM {
         return methods.get(index);
     }
 
+    public void addClass(Pointer root) {
+        classes.add(root);
+    }
+
+    public List<Pointer> getClasses() {
+        return classes;
+    }
+
+    public void addMethodDictionary(Pointer root) {
+        methodDictionaries.add(root);
+    }
+
+    public List<Pointer> getMethodDictionaries() {
+        return methodDictionaries;
+    }
+
     public void setPC(CodePointer pc) {
         programCounter = pc;
     }
@@ -215,7 +422,8 @@ public class MM {
 
     public int addConstant(Object constant) {
         constantPool.add(constant);
-        return constantPool.indexOf(constant);
+        int i = constantPool.indexOf(constant);
+        return i;
     }
 
     public Object constant(int index) {
@@ -235,7 +443,7 @@ public class MM {
     }
 
     private void clear(byte[] what, int from, int size) {
-        for (int i = from; i < size; i++) {
+        for (int i = from; i < from + size; i++) {
             what[i] = FREE_MARKER;
         }
     }
@@ -357,18 +565,41 @@ public class MM {
         out.println();
     }
 
+    public void heapObjectsDump() {
+        Pointer p = new Pointer(0, this);
+        while (p.address <= firstFreeHeapByte) {
+            if (p.$().marker() != MARKER) {
+                System.out.println("bad");
+            }
+            System.out.println("@" + p.address + ": " + p.$().kind() + " " + p.$().clazz().$c().name() + " #" + p.$().size());
+            int size = 0;
+            switch (p.$().kind()) {
+                case POINTER_INDEXED:
+                    size = pointerIndexedObjectSize(p.$().size());
+                    break;
+                case BYTE_INDEXED:
+                    size = byteIndexedObjectSize(p.$().size());
+                    break;
+            }
+            p = new Pointer(p.address + size, this);
+        }
+    }
+
     public class Obj {
 
         protected Pointer pointer;
         protected static final int KIND_OFFSET = 1;
-        protected static final int SIZE_OFFSET = KIND_OFFSET + 1;
+        protected static final int GC_STATE_OFFSET = KIND_OFFSET + 1;
+        protected static final int SIZE_OFFSET = GC_STATE_OFFSET + 1;
         protected static final int CLASS_OFFSET = SIZE_OFFSET + WORD_SIZE;
         protected static final int DATA_OFFSET = CLASS_OFFSET + REF_SIZE;
 
         public Obj(Pointer startAddress) {
             this.pointer = startAddress;
+        }
 
-            marker(MARKER);
+        public byte marker() {
+            return heap[pointer.address];
         }
 
         public void marker(byte marker) {
@@ -381,6 +612,14 @@ public class MM {
 
         public void kind(ObjectKind kind) {
             heap[pointer.address + KIND_OFFSET] = kind.value;
+        }
+
+        public GCState gcState() {
+            return GCState.fromValue(heap[pointer.address + GC_STATE_OFFSET]);
+        }
+
+        public void gcState(GCState state) {
+            heap[pointer.address + GC_STATE_OFFSET] = state.value;
         }
 
         public int size() {
@@ -411,9 +650,20 @@ public class MM {
             return retrievePointer(heap, address);
         }
 
+        public int fieldInt(int index) {
+            int address = pointer.address + DATA_OFFSET + (index * REF_SIZE);
+            int i = retrieveInt(heap, address);
+            return i;
+        }
+
         public void field(int index, Pointer obj) {
             int address = pointer.address + DATA_OFFSET + (index * REF_SIZE);
             storePointer(heap, address, obj);
+        }
+
+        public void fieldInt(int index, int i) {
+            int address = pointer.address + DATA_OFFSET + (index * REF_SIZE);
+            storeInt(heap, address, i);
         }
     }
 
@@ -438,12 +688,13 @@ public class MM {
             super(startAddress);
         }
 
-        public void name(Pointer name) {
-            field(0, name);
+        public void name(String name) {
+            int index = addConstant(name);
+            fieldInt(0, index);
         }
 
-        public Pointer name() {
-            return field(0);
+        public String name() {
+            return (String) constant(fieldInt(0));
         }
 
         public void superclass(Pointer superclass) {
@@ -462,12 +713,12 @@ public class MM {
             return field(2);
         }
 
-        public void objectSize(Pointer objectSize) {
-            field(3, objectSize);
+        public void objectSize(int objectSize) {
+            fieldInt(3, objectSize);
         }
 
-        public Pointer objectSize() {
-            return field(3);
+        public int objectSize() {
+            return fieldInt(3);
         }
 
         public void methods(Pointer methods) {
