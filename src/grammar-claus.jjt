@@ -23,6 +23,7 @@ class Claus {
   public ArrayList<String> codeLines;
   public Pointer inputClass;
   public boolean inMethod = false;
+  public boolean inDeclaration = false;
   public int fields = 0;
   public int localVars = 0;
   
@@ -195,17 +196,18 @@ void EntryPoint():
 /* Method declaration */
 void MethodDeclaration():
 {
-  Token methodName;
+  Token t;
   CodePointer cp;
   localVars = 0;
+  //int vi = 0;
 }
 {
-  <DEF_KW> methodName=<ID> <LPAREN> MethodArgumentDeclarationList() <RPAREN> TypeSpecifier() <DECLARATION_EQUALS> <LBRACE>
+  <DEF_KW> t=<ID> <LPAREN> MethodArgumentDeclarationList() <RPAREN> TypeSpecifier() <DECLARATION_EQUALS> <LBRACE>
     cp=MethodBody()
   <RBRACE>
   {
     System.out.println("[METHOD DECLARATION]: localVars=" + localVars);
-    vim.newMethod(methodName.image, cp, localVars);
+    vim.newMethod(t.image, cp, localVars);
   }
 }
 
@@ -239,8 +241,7 @@ CodePointer MethodBody():
 {
   cp=Block()
   {
-    
-    System.out.println("[METHOD BODY] END.");
+    //System.out.println("[METHOD BODY] END.");
     inMethod = false;
     return cp;
   }
@@ -267,19 +268,26 @@ CodePointer Block():
 /* Variable declaration */
 void VariableDeclaration():
 {
+  inDeclaration = true;
   Token varName;
-  //String s;
 }
 {
   <VAR_KW> varName=<ID> [TypeSpecifier()] <DECLARATION_EQUALS> Expression()
   {
-    //System.out.println("DEKLARACE PROMENNE: " + varName.image + "=" + s);
     System.out.println("VARIABLE DECLARATION: " + varName.image + "=<EXPRESSION>");
     if (inMethod) { // v metode = lokalni promenne
+      // pridat hodnotu promenne do lokalni promenne na stack
+      // <push-local index> --> udelat v expression
       localVars++;
     } else { // ve tride = fieldy
+      // pridat pointer na objekt na stack
+      // pridat index objektu na stack
+      // pridat hodnotu objektu do fieldu na stack
+      // 
+      // <set-field index> --> udelat v expression
       fields++;
     }
+    inDeclaration = false;
   }
 }
 
