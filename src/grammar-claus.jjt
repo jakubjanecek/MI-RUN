@@ -63,6 +63,7 @@ TOKEN: {
   | <DEF_KW: "def">
   | <VAR_KW: "var">
   | <RETURN_KW: "return">
+  | <RETURN_VALUE_KW: "return-val">
   | <NEW_KW: "new">
   | <FOR_KW: "for">
   | <FOR_ARROW_KW: "<-">
@@ -122,6 +123,8 @@ void ClassBody():
 {}
 {
   (Declaration())*
+  {
+  }
 }
 
 //* Declaration */
@@ -131,32 +134,36 @@ void Declaration():
     VariableDeclaration()
   | MethodDeclaration()
   | EntryPoint()
+  {
+  }
 }
 
-/* Entry-point */
+//* Entry-point */
 void EntryPoint():
 {
-  String[] code;
+  CodePointer cp;
 }
 {
-  <ENTRYPOINT_KW> <LBRACE> code=MethodBody() <RBRACE>
+  <ENTRYPOINT_KW> <LBRACE> cp=MethodBody() <RBRACE>
   {
-    vim.run(mem.storeCode(vm.Util.translateBytecode(code)));
+    vim.run(cp);
   }
 }
 
 /* Method declaration */
 void MethodDeclaration():
 {
+  //System.out.println("METHOD DECLARATION - BEGIN.");
   Token methodName;
-  String[] code;
+  CodePointer cp;
 }
 {
   <DEF_KW> methodName=<ID> <LPAREN> MethodArgumentDeclarationList() <RPAREN> TypeSpecifier() <DECLARATION_EQUALS> <LBRACE>
-    code=MethodBody()
+    cp=MethodBody()
   <RBRACE>
   {
     // TODO - Zavolat vytvoreni metody.
+    //System.out.println("METHOD DECLARATION - END.");
   }
 }
 
@@ -182,11 +189,27 @@ void MethodArgumentDeclaration():
 }
 
 /* Method body */
-String[] MethodBody():
+CodePointer MethodBody():
+{
+  CodePointer cp;
+  System.out.println("METHOD BODY - BEGIN.");
+}
+{
+  cp=Block()
+  {
+    
+    System.out.println("METHOD BODY - END.");
+    return cp;
+  }
+}
+
+/* Block */
+CodePointer Block():
 {}
 {
-  Block()
+  (Statement())*
   {
+    // TODO - FIXME.
     String[] code = new String[]{
       "new-int 10",
       "new-int 20",
@@ -194,26 +217,21 @@ String[] MethodBody():
       "syscall " + vm.Syscalls.calls2ints.get("print-int"),
       "return"
     };
-    return code;
+    return mem.storeCode(vm.Util.translateBytecode(code));
   }
 }
 
-/* Block */
-void Block():
-{}
-{
-  (Statement())*
-}
-
 /* Variable declaration */
-void VariableDeclaration():
+String VariableDeclaration():
 {
   Token varName;
+  //String s;
 }
 {
   <VAR_KW> varName=<ID> [TypeSpecifier()] <DECLARATION_EQUALS> Expression()
   {
-    System.out.println("DEKLARACE PROMENNE: " + varName.image);
+    //System.out.println("DEKLARACE PROMENNE: " + varName.image + "=" + s);
+    return ("VARIABLE DECLARATION: " + varName.image + "=<EXPRESSION>");
   }
 }
 
@@ -231,10 +249,11 @@ void Statement():
 }
 {
     LOOKAHEAD(2)
-    s=MethodCall()
+    MethodCall()
   | VariableDeclaration()
   | Assignment()
   | ReturnStatement()
+  | ReturnValueStatement()
   | If()
   | While()
   | For()
@@ -246,7 +265,7 @@ void Statement():
 /* Expression */
 void Expression():
 {
-  String s;
+  String s = "<EXPRESSION>";
 }
 {
     LOOKAHEAD(2)
@@ -254,52 +273,76 @@ void Expression():
   | s=Instantiation()
   | s=SimpleValue()
   {
-    System.out.println("VYRAZ: " + s);
+    System.out.println("EXPRESSION: " + s);
+    //return ("EXPRESSION: " + s);
+    //codeLines.add("EXPRESSION: " + s);
   }
 }
 
 /* Method call */
-String MethodCall():
+void MethodCall():
 {
-  //Token t;
+  Token t;
 }
 {
     LOOKAHEAD(2)
-    <ID> <PERIOD> <ID> <LPAREN> [MethodArgumentList()] <RPAREN>
-  | <ID> <LPAREN> [MethodArgumentList()] <RPAREN>
+    <ID> <PERIOD> t=<ID> <LPAREN> [MethodArgumentList()] <RPAREN>
+  | t=<ID> <LPAREN> [MethodArgumentList()] <RPAREN>
   {
-    return "METHOD CALL: ...";
+    //return ("METHOD CALL: " + t.image);
+    System.out.println("METHOD CALL: " + t.image);
   }
 }
 
 /* Mathod argument list */
 void MethodArgumentList():
-{}
 {
-  Expression() (<COMMA> Expression())*
+  //String s1;
+  //String s2;
+}
+{
+  Expression() MethodArgumentListExtension()
+  {
+    //System.out.println("METHOD ARGUMENT LIST: (" + s1 + s2 + ")");
+  }
+}
+
+/* Mathod argument list extension */
+void MethodArgumentListExtension():
+{
+  //String s = "";
+  //String a = "";
+}
+{
+  (<COMMA> Expression())*
+  {
+  }
 }
 
 /* Instantiation */
 String Instantiation():
 {
-  String s;
+  String s = "<ARRAY_INDEXING>";
 }
 {
   <NEW_KW> <ID> s=ArrayIndexing()
   {
-    return "INSTANTIATION";
+    return ("INSTANTIATION: " + s);
   }
 }
 
 /* Assignment */
 void Assignment():
 {
-  String s;
+  Token t;
+  //String s1 = "<ARRAY_INDEXING>";
+  //String s2;
 }
 {
-  <ID> s=ArrayIndexing() <DECLARATION_EQUALS> Expression()
+  t=<ID> ArrayIndexing() <DECLARATION_EQUALS> Expression()
   {
     // TODO - RETURN.
+    System.out.println("ASSIGNMENT: " + t.image);
   }
 }
 
@@ -307,61 +350,97 @@ void Assignment():
 void ReturnStatement():
 {}
 {
-  <RETURN_KW> Expression()
+  <RETURN_KW>
+  {
+    System.out.println("RETURN");
+  }
+}
+
+/* Return-value statement */
+void ReturnValueStatement():
+{}
+{
+  <RETURN_VALUE_KW> Expression()
+  {
+    System.out.println("RETURN-VALUE");
+  }
 }
 
 /* If condition */
 void If():
-{}
 {
-  <IF_KW> <LPAREN> Condition() <RPAREN>
-    <LBRACE> Block() <RBRACE>
-    [<ELSE_KW> <LBRACE> Block() <RBRACE>]
+  CodePointer cp;
+}
+{
+  <IF_KW> <LPAREN> Condition() <RPAREN> <LBRACE> cp=Block() <RBRACE>
+  [<ELSE_KW> <LBRACE> cp=Block() <RBRACE>]
+  {
+  }
 }
 
 /* While loop */
 void While():
-{}
 {
-  <WHILE_KW> <LPAREN> Condition() <RPAREN> <LBRACE> Block() <RBRACE>
+  CodePointer cp;
+}
+{
+  <WHILE_KW> <LPAREN> Condition() <RPAREN> <LBRACE> cp=Block() <RBRACE>
+  {
+  }
 }
 
 /* For loop */
 void For():
-{}
 {
-  <FOR_KW> <LPAREN> ForDeclaration() <RPAREN> <LBRACE> Block() <RBRACE>
+  CodePointer cp;
+}
+{
+  <FOR_KW> <LPAREN> ForDeclaration() <RPAREN> <LBRACE> cp=Block() <RBRACE>
 }
 
 /* For loop declaration */
 void ForDeclaration():
-{}
 {
-  <ID> <FOR_ARROW_KW> Expression() <PERIOD> <PERIOD> Expression()
+  Token t;
+  //String s1;
+  //String s2;
+}
+{
+  t=<ID> <FOR_ARROW_KW> Expression() <PERIOD> <PERIOD> Expression()
+  {
+    System.out.println("FOR-LOOP: " + t.image);
+  }
 }
 
 /* Contition */
 void Condition():
-{}
 {
-  Expression() (<EQUALS> | <NOT_EQUALS> | <LT> | <GT>) Expression()
+  Token t;
+  //String s1;
+  //String s2;
+}
+{
+  Expression() (t=<EQUALS> | t=<NOT_EQUALS> | t=<LT> | t=<GT>) Expression()
+  {
+    System.out.println("CONDITION: TYPE " + t.image);
+  }
 }
 
 /* Simple value */
 String SimpleValue():
 {
-  String s;
+  String s = "NULL";
 }
 {
     LOOKAHEAD(2)
-    s=MethodCall()
+    MethodCall()
   | <ID> s=ArrayIndexing()
   | s=IntegerValue()
   | s=TrueValue()
   | s=FalseValue()
   | s=StringValue()
   {
-    return "SIMPLE VALUE: " + s;
+    return ("SIMPLE VALUE: " + s);
   }
 }
 
@@ -373,7 +452,7 @@ String IntegerValue():
 {
   t=<INTEGER>
   {
-    return "INTEGER: " + t.image;
+    return ("INTEGER: " + t.image);
   }
 }
 
@@ -405,18 +484,19 @@ String StringValue():
 {
   t=<STRING>
   {
-    return "STRING: " + t.image;
+    return ("STRING: " + t.image);
   }
 }
 
 /* Array indexing */
 String ArrayIndexing():
-{}
+{
+  //String s = "";
+}
 {
   [<LBRACKET> Expression() <RBRACKET>]
   {
-    // TODO - FIXME.
-    return "ARRAY INDEXING";
+    return ("[<EXPRESSION>]");
   }
 }
 
@@ -426,7 +506,7 @@ String MathExpression():
 {
   <LPAREN> Term() MathExpressionExt() <RPAREN>
   {
-    return "MAT. VYRAZ";
+    return "<MATH EXPRESSION>";
   }
 }
 

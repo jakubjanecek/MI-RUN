@@ -11,6 +11,7 @@ class FirstTest {
     println("Run - zacatek.")
     println("Oukeeej... :)")
     println("Run - konec.")
+    return
   }
   
 }
