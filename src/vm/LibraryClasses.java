@@ -5,7 +5,6 @@ import vm.mm.MM;
 import vm.mm.Pointer;
 
 import static java.util.Arrays.asList;
-import static vm.Util.str2bytes;
 
 public class LibraryClasses {
 
@@ -19,7 +18,7 @@ public class LibraryClasses {
     }
 
     public Pointer createIntegerClass() {
-        Pointer clazz = vm.newClazz(str2bytes("Integer"), MM.WORD_SIZE);
+        Pointer clazz = vm.newClazz("Integer", MM.WORD_SIZE);
 
         String[] plusBC = new String[]{
                 "pop-arg 1",
@@ -74,7 +73,7 @@ public class LibraryClasses {
     }
 
     public Pointer createStringClass() {
-        Pointer clazz = vm.newClazz(str2bytes("String"));
+        Pointer clazz = vm.newClazz("String");
 
         String[] lengthBC = new String[]{
                 "pop-arg 0",
@@ -101,8 +100,11 @@ public class LibraryClasses {
     }
 
     public Pointer createArrayClass() {
-        Pointer clazz = vm.newClazz(str2bytes("Array"));
+        Pointer clazz = vm.newClazz("Array");
+        return clazz;
+    }
 
+    public void finishArrayClass(Pointer clazz) {
         String[] lengthBC = new String[]{
                 "pop-arg 0",
                 "syscall " + Syscalls.calls2ints.get("arr-length"),
@@ -133,12 +135,10 @@ public class LibraryClasses {
                 vm.newMethod("set", setMethod, 0),
         }));
         clazz.$c().methods(methodDictionaryOfObject);
-
-        return clazz;
     }
 
     public Pointer createTextFileReaderClass() {
-        Pointer clazz = vm.newClazz(str2bytes("TextFileReader"), 1);
+        Pointer clazz = vm.newClazz("TextFileReader", 1);
 
         String[] openBC = new String[]{
                 "pop-arg 1",
@@ -181,7 +181,7 @@ public class LibraryClasses {
     }
 
     public Pointer createTextFileWriterClass() {
-        Pointer clazz = vm.newClazz(str2bytes("TextFileWriter"), 1);
+        Pointer clazz = vm.newClazz("TextFileWriter", 1);
 
         String[] openBC = new String[]{
                 "pop-arg 1",

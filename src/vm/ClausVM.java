@@ -25,8 +25,6 @@ public class ClausVM {
 
     private Pointer classOfInteger;
 
-    private List<Pointer> classes;
-
     private List<BufferedReader> inputHandles;
     private List<BufferedWriter> outputHandles;
 
@@ -36,8 +34,6 @@ public class ClausVM {
 
     public ClausVM(MM mm) {
         this.mm = mm;
-
-        this.classes = new ArrayList<Pointer>();
 
         this.interpreter = new BytecodeInterpreter(this, mm);
 
@@ -59,30 +55,38 @@ public class ClausVM {
     private final void bootstrap() {
         inputHandles = new ArrayList<BufferedReader>();
         outputHandles = new ArrayList<BufferedWriter>();
+        LibraryClasses library = new LibraryClasses(this, mm);
 
-        metaclass = newClazz(str2bytes("Metaclass"));
-        // Object does not have a superclass! Needs to be specified directly here!
-        classOfObject = newClazz(str2bytes("Object"), 0, mm.NULL);
+        // Metaclass is the class of classes, needs to be created first.
+        metaclass = newClazz("Metaclass");
+
+        // Object is the superclass of all classes, needs to be created second.
+        // Object does not have a superclass. Needs to be specified directly as mm.NULL!
+        classOfObject = newClazz("Object", 0, mm.NULL);
+
+        // Now that we have Metaclass class and Object class, we can set them to the Metclass.
         metaclass.$c().metaclass(metaclass);
         metaclass.$c().superclass(classOfObject);
 
+        // We need Array class now because it is used as a method dictionary.
+        // It is created in two steps, first class is created, second methods are added to it (for the methods to be added,
+        // we need the class so that method dictionary can be created).
+        classOfArray = library.createArrayClass();
+        library.finishArrayClass(classOfArray);
+
+        // Now that we are able to create method dictionaries we can finish the Object class and put some methods in it.
         byte[] methodBytecode = new byte[]{Bytecode.strings2bytecodes.get("return").code};
         CodePointer methodPointer = mm.storeCode(methodBytecode);
         Pointer methodDictionaryOfObject = newMethodDictionary(asList(new Integer[]{newMethod("getObjectID", methodPointer, 0)}));
         classOfObject.$c().methods(methodDictionaryOfObject);
 
-        LibraryClasses library = new LibraryClasses(this, mm);
-
+        // Everything is bootstrapped now, we can start creating library classes.
         classOfInteger = library.createIntegerClass();
         classOfString = library.createStringClass();
-        classOfArray = library.createArrayClass();
 
-        classes.addAll(asList(new Pointer[]{
-                metaclass, classOfObject, classOfInteger, classOfString, classOfArray
-        }));
-
-        classes.add(library.createTextFileReaderClass());
-        classes.add(library.createTextFileWriterClass());
+        // Finishing the library.
+        library.createTextFileReaderClass();
+        library.createTextFileWriterClass();
     }
 
     public Pointer newObject(Pointer clazz, int size) {
@@ -92,6 +96,8 @@ public class ClausVM {
             throw new RuntimeException("Not enough memory!");
         }
 
+        newObject.$().marker(MM.MARKER);
+        newObject.$().gcState(GCState.NORMAL);
         newObject.$().kind(ObjectKind.POINTER_INDEXED);
         newObject.$().size(size);
         newObject.$().clazz(clazz);
@@ -103,15 +109,15 @@ public class ClausVM {
         return newObject;
     }
 
-    public Pointer newClazz(byte[] name) {
+    public Pointer newClazz(String name) {
         return newClazz(name, 0, null);
     }
 
-    public Pointer newClazz(byte[] name, int numOfFields) {
+    public Pointer newClazz(String name, int numOfFields) {
         return newClazz(name, numOfFields, null);
     }
 
-    public Pointer newClazz(byte[] name, int numOfFields, Pointer superclass) {
+    public Pointer newClazz(String name, int numOfFields, Pointer superclass) {
         int CLASS_SIZE = 5;
 
         Pointer newClass = mm.alloc(mm.pointerIndexedObjectSize(CLASS_SIZE));
@@ -120,6 +126,8 @@ public class ClausVM {
             throw new RuntimeException("Not enough memory!");
         }
 
+        newClass.$().marker(MM.MARKER);
+        newClass.$().gcState(GCState.NORMAL);
         newClass.$().kind(ObjectKind.POINTER_INDEXED);
         newClass.$().size(CLASS_SIZE);
 
@@ -132,17 +140,19 @@ public class ClausVM {
         }
         newClass.$c().superclass(superclass);
 
-        newClass.$c().objectSize(newInteger(int2bytes(numOfFields)));
+        newClass.$c().objectSize(numOfFields);
 
-        newClass.$c().name(newString(name));
+        newClass.$c().name(name);
         newClass.$c().methods(mm.NULL);
+
+        mm.addClass(newClass);
 
         return newClass;
     }
 
     public Pointer getClazz(String name) {
-        for (Pointer clazz : classes) {
-            if (bytes2str(clazz.$c().name().$b().bytes()).equals(name)) {
+        for (Pointer clazz : mm.getClasses()) {
+            if (clazz.$c().name().equals(name)) {
                 return clazz;
             }
         }
@@ -159,11 +169,13 @@ public class ClausVM {
     }
 
     public Pointer newMethodDictionary(List<Integer> methods) {
-        Pointer methodDictionary = newObject(classOfObject, methods.size());
+        Pointer methodDictionary = newObject(classOfArray, methods.size());
 
         for (int i = 0; i < methods.size(); i++) {
-            methodDictionary.$p().field(i, newInteger(int2bytes(methods.get(i))));
+            methodDictionary.$p().fieldInt(i, methods.get(i));
         }
+
+        mm.addMethodDictionary(methodDictionary);
 
         return methodDictionary;
     }
@@ -179,6 +191,8 @@ public class ClausVM {
             throw new RuntimeException("Not enough memory!");
         }
 
+        newString.$().marker(MM.MARKER);
+        newString.$().gcState(GCState.NORMAL);
         newString.$().kind(ObjectKind.BYTE_INDEXED);
         newString.$().size(str.length);
         newString.$().clazz(classOfString);
@@ -194,6 +208,8 @@ public class ClausVM {
             throw new RuntimeException("Not enough memory!");
         }
 
+        newInteger.$().marker(MM.MARKER);
+        newInteger.$().gcState(GCState.NORMAL);
         newInteger.$().kind(ObjectKind.BYTE_INDEXED);
         newInteger.$().size(MM.WORD_SIZE);
         newInteger.$().clazz(classOfInteger);
@@ -212,7 +228,7 @@ public class ClausVM {
             mm.newFrame(method.numOfLocals());
             interpreter.jump(method.bytecodePointer());
         } else {
-            throw new RuntimeException("Method '" + selector + "' not found in class '" + bytes2str(objectClass.$c().name().$b().bytes()) + "'");
+            throw new RuntimeException("Method '" + selector + "' not found in class '" + objectClass.$c().name() + "'");
         }
     }
 
@@ -227,8 +243,7 @@ public class ClausVM {
                 int size = methodDictionary.size();
 
                 for (int i = 0; i < size; i++) {
-                    Pointer methodPointer = methodDictionary.field(i);
-                    int methodIndex = bytes2int(methodPointer.$b().bytes());
+                    int methodIndex = methodDictionary.fieldInt(i);
 
                     Method m = mm.method(methodIndex);
 
