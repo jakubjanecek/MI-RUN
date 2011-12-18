@@ -1,16 +1,26 @@
-options {
+/*---------------------------------------------------------------------------*
+ * Options                                                                   *
+ *---------------------------------------------------------------------------*/
+
+ options {
   //DEBUG_PARSER = true;
   STATIC = false;
   MULTI = true;
 }
 
+/*---------------------------------------------------------------------------*
+ * Parser                                                                    *
+ *---------------------------------------------------------------------------*/
+
 PARSER_BEGIN(Claus)
 
+import java.util.ArrayList;
 import vm.mm.*;
 
 class Claus {
   public static MM mem;
   public static vm.ClausVM vim;
+  public ArrayList<String> codeLines;
   public Pointer inputClass;
   
   public static void main(String[] args) {
@@ -23,61 +33,75 @@ class Claus {
       // Input parsing
       Claus parser = new Claus(System.in);
       System.out.println(parser.Class());
-      System.out.println("Parsing result: OK.");
+      System.out.println("\nParsing result: OK.");
     } catch (ParseException pe) {
-      System.err.println("Parse exception occured.");
+      System.err.println("\nParse exception occured.");
     } catch (TokenMgrError tme) {
-      System.err.println("Token exception occured.");
+      System.err.println("\nToken exception occured.");
     } catch (Exception e) {
-      System.err.println("Exception occured: " + e.getMessage());
+      System.err.println("\nException occured: " + e.getMessage());
     }
   }
 }
 
 PARSER_END(Claus)
 
-SKIP: {" " | "\n" | "\r" | "\t"}
+/*---------------------------------------------------------------------------*
+ * Grammar                                                                   *
+ *---------------------------------------------------------------------------*/
 
-TOKEN: {
-  <CLASS_KW: "class">
-| <ENTRYPOINT_KW: "entry-point">
-| <DEF_KW: "def">
-| <VAR_KW: "var">
-| <RETURN_KW: "return">
-| <NEW_KW: "new">
-| <FOR_KW: "for">
-| <FOR_ARROW_KW: "<-">
-| <WHILE_KW: "while">
-| <IF_KW: "if">
-| <ELSE_KW: "else">
-| <TRUE_KW: "true">
-| <FALSE_KW: "false">
-| <LBRACE: "{">
-| <RBRACE: "}">
-| <LPAREN: "(">
-| <RPAREN: ")">
-| <LBRACKET: "[">
-| <RBRACKET: "]">
-| <COLON: ":">
-| <SEMI: ";">
-| <COMMA: ",">
-| <PERIOD: ".">
-| <DECLARATION_EQUALS: "=">
-| <PLUS: "+">
-| <MINUS: "-">
-| <MULTIPLICATION: "*">
-| <DIVISION: "/">
-| <MODULO: "%">
-| <POWER: "^">
-| <EQUALS: "==">
-| <NOT_EQUALS: "!=">
-| <LT: "<">
-| <GT: ">">
-| <ID: ["a"-"z","A"-"Z"](["a"-"z","A"-"Z","0"-"9"])*>
-| <STRING: "\""(~["\""])*"\"">
-| <INTEGER: (["0"-"9"])+>
+SKIP: {
+    " "
+  | "\t"
+  | "\n"
+  | "\r"
 }
 
+TOKEN: {
+    <CLASS_KW: "class">
+  | <ENTRYPOINT_KW: "entry-point">
+  | <DEF_KW: "def">
+  | <VAR_KW: "var">
+  | <RETURN_KW: "return">
+  | <NEW_KW: "new">
+  | <FOR_KW: "for">
+  | <FOR_ARROW_KW: "<-">
+  | <WHILE_KW: "while">
+  | <IF_KW: "if">
+  | <ELSE_KW: "else">
+  | <TRUE_KW: "true">
+  | <FALSE_KW: "false">
+  | <LBRACE: "{">
+  | <RBRACE: "}">
+  | <LPAREN: "(">
+  | <RPAREN: ")">
+  | <LBRACKET: "[">
+  | <RBRACKET: "]">
+  | <COLON: ":">
+  | <SEMI: ";">
+  | <COMMA: ",">
+  | <PERIOD: ".">
+  | <DECLARATION_EQUALS: "=">
+  | <PLUS: "+">
+  | <MINUS: "-">
+  | <MULTIPLICATION: "*">
+  | <DIVISION: "/">
+  | <MODULO: "%">
+  | <POWER: "^">
+  | <EQUALS: "==">
+  | <NOT_EQUALS: "!=">
+  | <LT: "<">
+  | <GT: ">">
+  | <ID: ["a"-"z","A"-"Z"](["a"-"z","A"-"Z","0"-"9"])*>
+  | <STRING: "\""(~["\""])*"\"">
+  | <INTEGER: (["0"-"9"])+>
+}
+
+/*---------------------------------------------------------------------------*
+ * AST nodes                                                                 *
+ *---------------------------------------------------------------------------*/
+
+//* Class */
 ASTClass Class():
 {
   Token className;
@@ -86,7 +110,6 @@ ASTClass Class():
   <CLASS_KW> className=<ID> <LBRACE> ClassBody() <RBRACE>
   <EOF>
   {
-    // VM
     inputClass = vim.newClazz(vm.Util.str2bytes(className.image), 0);
     // JJTree
     jjtThis.value = className.image;
@@ -94,16 +117,20 @@ ASTClass Class():
   }
 }
 
+//* Class body */
 void ClassBody():
 {}
 {
   (Declaration())*
 }
 
+//* Declaration */
 void Declaration():
 {}
 {
-  VariableDeclaration() | MethodDeclaration() | EntryPoint()
+    VariableDeclaration()
+  | MethodDeclaration()
+  | EntryPoint()
 }
 
 /* Entry-point */
@@ -118,6 +145,7 @@ void EntryPoint():
   }
 }
 
+/* Method declaration */
 void MethodDeclaration():
 {
   Token methodName;
@@ -132,18 +160,21 @@ void MethodDeclaration():
   }
 }
 
+/* Method argument declaration list */
 void MethodArgumentDeclarationList():
 {}
 {
    [MethodArgumentDeclaration() MethodArgumentDeclarationListExt()]
 }
 
+/* Method argument declaration list extension */
 void MethodArgumentDeclarationListExt():
 {}
 {
   [<COMMA> MethodArgumentDeclarationList()]
 }
 
+/* Method argument declaration */
 void MethodArgumentDeclaration():
 {}
 {
@@ -157,88 +188,129 @@ String[] MethodBody():
   Block()
   {
     String[] code = new String[]{
-            "new-int 10",
-            "new-int 20",
-            "call " + mem.addConstant("add"),
-            "syscall " + vm.Syscalls.calls2ints.get("print-int"),
-            "return"
+      "new-int 10",
+      "new-int 20",
+      "call " + mem.addConstant("add"),
+      "syscall " + vm.Syscalls.calls2ints.get("print-int"),
+      "return"
     };
     return code;
   }
 }
 
+/* Block */
 void Block():
 {}
 {
   (Statement())*
 }
 
+/* Variable declaration */
 void VariableDeclaration():
-{}
 {
-  <VAR_KW> <ID> [TypeSpecifier()] <DECLARATION_EQUALS> Expression()
+  Token varName;
+}
+{
+  <VAR_KW> varName=<ID> [TypeSpecifier()] <DECLARATION_EQUALS> Expression()
+  {
+    System.out.println("DEKLARACE PROMENNE: " + varName.image);
+  }
 }
 
+/* Type specifier */
 void TypeSpecifier():
 {}
 {
   <COLON> <ID> [<LBRACKET> <RBRACKET>]
 }
 
+/* Statement */
 void Statement():
-{}
 {
-  LOOKAHEAD(2)
-  MethodCall()
-| VariableDeclaration()
-| Assignment()
-| Return()
-| If()
-| While()
-| For()
+  String s = "NULL";
+}
+{
+    LOOKAHEAD(2)
+    s=MethodCall()
+  | VariableDeclaration()
+  | Assignment()
+  | ReturnStatement()
+  | If()
+  | While()
+  | For()
+  {
+    System.out.println("STATEMENT " + s);
+  }
 }
 
+/* Expression */
 void Expression():
-{}
 {
-  LOOKAHEAD(2)
-  MathExpression()
-| Instantiation()
-| SimpleValue()
+  String s;
+}
+{
+    LOOKAHEAD(2)
+    s=MathExpression()
+  | s=Instantiation()
+  | s=SimpleValue()
+  {
+    System.out.println("VYRAZ: " + s);
+  }
 }
 
-void MethodCall():
-{}
+/* Method call */
+String MethodCall():
 {
-  LOOKAHEAD(2)
-  <ID> <PERIOD> <ID> <LPAREN> [MethodArgumentList()] <RPAREN>
-| <ID> <LPAREN> [MethodArgumentList()] <RPAREN>
+  //Token t;
+}
+{
+    LOOKAHEAD(2)
+    <ID> <PERIOD> <ID> <LPAREN> [MethodArgumentList()] <RPAREN>
+  | <ID> <LPAREN> [MethodArgumentList()] <RPAREN>
+  {
+    return "METHOD CALL: ...";
+  }
 }
 
+/* Mathod argument list */
 void MethodArgumentList():
 {}
 {
   Expression() (<COMMA> Expression())*
 }
 
-void Instantiation():
-{}
+/* Instantiation */
+String Instantiation():
 {
-  <NEW_KW> <ID> ArrayIndexing()
+  String s;
+}
+{
+  <NEW_KW> <ID> s=ArrayIndexing()
+  {
+    return "INSTANTIATION";
+  }
 }
 
+/* Assignment */
 void Assignment():
-{}
 {
-  <ID> ArrayIndexing() <DECLARATION_EQUALS> Expression()
+  String s;
+}
+{
+  <ID> s=ArrayIndexing() <DECLARATION_EQUALS> Expression()
+  {
+    // TODO - RETURN.
+  }
 }
 
-void Return():
+/* Return statement */
+void ReturnStatement():
 {}
 {
   <RETURN_KW> Expression()
 }
 
+/* If condition */
 void If():
 {}
 {
@@ -247,72 +319,139 @@ void If():
     [<ELSE_KW> <LBRACE> Block() <RBRACE>]
 }
 
+/* While loop */
 void While():
 {}
 {
   <WHILE_KW> <LPAREN> Condition() <RPAREN> <LBRACE> Block() <RBRACE>
 }
 
+/* For loop */
 void For():
 {}
 {
   <FOR_KW> <LPAREN> ForDeclaration() <RPAREN> <LBRACE> Block() <RBRACE>
 }
 
+/* For loop declaration */
 void ForDeclaration():
 {}
 {
   <ID> <FOR_ARROW_KW> Expression() <PERIOD> <PERIOD> Expression()
 }
 
+/* Contition */
 void Condition():
 {}
 {
   Expression() (<EQUALS> | <NOT_EQUALS> | <LT> | <GT>) Expression()
 }
 
-void SimpleValue():
-{}
+/* Simple value */
+String SimpleValue():
 {
-  LOOKAHEAD(2)
-  MethodCall()
-| <ID> ArrayIndexing()
-| <INTEGER>
-| <TRUE_KW>
-| <FALSE_KW>
-| <STRING>
+  String s;
+}
+{
+    LOOKAHEAD(2)
+    s=MethodCall()
+  | <ID> s=ArrayIndexing()
+  | s=IntegerValue()
+  | s=TrueValue()
+  | s=FalseValue()
+  | s=StringValue()
+  {
+    return "SIMPLE VALUE: " + s;
+  }
 }
 
-void ArrayIndexing():
+/* Integer value */
+String IntegerValue():
+{
+  Token t;
+}
+{
+  t=<INTEGER>
+  {
+    return "INTEGER: " + t.image;
+  }
+}
+
+/* True value */
+String TrueValue():
+{}
+{
+  <TRUE_KW>
+  {
+    return "TRUE";
+  }
+}
+
+/* False value */
+String FalseValue():
+{}
+{
+  <FALSE_KW>
+  {
+    return "FALSE";
+  }
+}
+
+/* String value */
+String StringValue():
+{
+  Token t;
+}
+{
+  t=<STRING>
+  {
+    return "STRING: " + t.image;
+  }
+}
+
+/* Array indexing */
+String ArrayIndexing():
 {}
 {
   [<LBRACKET> Expression() <RBRACKET>]
+  {
+    // TODO - FIXME.
+    return "ARRAY INDEXING";
+  }
 }
 
-void MathExpression():
+/* Math expression */
+String MathExpression():
 {}
 {
   <LPAREN> Term() MathExpressionExt() <RPAREN>
+  {
+    return "MAT. VYRAZ";
+  }
 }
 
+/* Math expression extension */
 void MathExpressionExt():
 {}
 {
   [(<PLUS> | <MINUS>) Term() MathExpressionExt()]
 }
 
+/* Term */
 void Term():
 {}
 {
   Factor() TermExt()
 }
 
+/* Term extension */
 void TermExt():
 {}
 {
   [(<MULTIPLICATION> | <DIVISION> | <MODULO> | <POWER>) Factor() TermExt()]
 }
 
+/* Factor */
 void Factor():
 {}
 {
