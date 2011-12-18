@@ -9,9 +9,8 @@ class FirstTest {
 
   def run() : Nothing = {
     println("Run - zacatek.")
-    println("Oukeeej... :)")
+    //println("Oukeeej... :)")
     println("Run - konec.")
-    return
   }
   
 }

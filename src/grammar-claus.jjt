@@ -50,6 +50,7 @@ PARSER_END(Claus)
  * Grammar                                                                   *
  *---------------------------------------------------------------------------*/
 
+/* Whitespaces */
 SKIP: {
     " "
   | "\t"
@@ -57,13 +58,48 @@ SKIP: {
   | "\r"
 }
 
+/* Comments */
+MORE :
+{
+  "//" : IN_SINGLE_LINE_COMMENT
+|
+  <"/**" ~["/"]> { input_stream.backup(1); } : IN_FORMAL_COMMENT
+|
+  "/*" : IN_MULTI_LINE_COMMENT
+}
+
+<IN_SINGLE_LINE_COMMENT>
+SPECIAL_TOKEN :
+{
+  <SINGLE_LINE_COMMENT: "\n" | "\r" | "\r\n" > : DEFAULT
+}
+
+<IN_FORMAL_COMMENT>
+SPECIAL_TOKEN :
+{
+  <FORMAL_COMMENT: "*/" > : DEFAULT
+}
+
+<IN_MULTI_LINE_COMMENT>
+SPECIAL_TOKEN :
+{
+  <MULTI_LINE_COMMENT: "*/" > : DEFAULT
+}
+
+<IN_SINGLE_LINE_COMMENT,IN_FORMAL_COMMENT,IN_MULTI_LINE_COMMENT>
+MORE :
+{
+  < ~[] >
+}
+
+/* Tokens */
 TOKEN: {
     <CLASS_KW: "class">
   | <ENTRYPOINT_KW: "entry-point">
   | <DEF_KW: "def">
   | <VAR_KW: "var">
   | <RETURN_KW: "return">
-  | <RETURN_VALUE_KW: "return-val">
+  | <RETURN_VALUE_KW: "retval">
   | <NEW_KW: "new">
   | <FOR_KW: "for">
   | <FOR_ARROW_KW: "<-">
@@ -129,12 +165,15 @@ void ClassBody():
 
 //* Declaration */
 void Declaration():
-{}
 {
-    VariableDeclaration()
+  String s = "<DECLARATION>";
+}
+{
+    s=VariableDeclaration()
   | MethodDeclaration()
   | EntryPoint()
   {
+    System.out.println("DECLARATION: " + s);
   }
 }
 
@@ -250,7 +289,7 @@ void Statement():
 {
     LOOKAHEAD(2)
     MethodCall()
-  | VariableDeclaration()
+  | s=VariableDeclaration()
   | Assignment()
   | ReturnStatement()
   | ReturnValueStatement()
@@ -270,7 +309,7 @@ void Expression():
 {
     LOOKAHEAD(2)
     s=MathExpression()
-  | s=Instantiation()
+  | Instantiation()
   | s=SimpleValue()
   {
     System.out.println("EXPRESSION: " + s);
@@ -320,14 +359,12 @@ void MethodArgumentListExtension():
 }
 
 /* Instantiation */
-String Instantiation():
+void Instantiation():
+{}
 {
-  String s = "<ARRAY_INDEXING>";
-}
-{
-  <NEW_KW> <ID> s=ArrayIndexing()
+  <NEW_KW> <ID> ArrayIndexing()
   {
-    return ("INSTANTIATION: " + s);
+    System.out.println("<INSTANTIATION>");
   }
 }
 
@@ -434,7 +471,7 @@ String SimpleValue():
 {
     LOOKAHEAD(2)
     MethodCall()
-  | <ID> s=ArrayIndexing()
+  | <ID> ArrayIndexing()
   | s=IntegerValue()
   | s=TrueValue()
   | s=FalseValue()
@@ -489,14 +526,14 @@ String StringValue():
 }
 
 /* Array indexing */
-String ArrayIndexing():
+void ArrayIndexing():
 {
   //String s = "";
 }
 {
   [<LBRACKET> Expression() <RBRACKET>]
   {
-    return ("[<EXPRESSION>]");
+    System.out.println("[<EXPRESSION>]");
   }
 }
 
