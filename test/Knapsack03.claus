@@ -5,23 +5,11 @@ class Knapsack {
   var weights = 0
   var prices = 0
 
-  entry-point {
-    var knapsack = new Knapsack
-    knapsack.init()
-    knapsack.run(args)
-  }
-  
   def init() : Nothing = {
     n = 10
     capacity = 100
     weights = new Integer[10]
     prices = new Integer[10]
-  }
-
-  def run(args : String[]) : Nothing = {
-    load(args[0])
-    solveKnapsackProblem()
-    save("test")
   }
 
   def load(filename : String) : Nothing = {
@@ -107,4 +95,16 @@ class Knapsack {
     println(result)
   }
   
+  def run(args : String[]) : Nothing = {
+    load(args[0])
+    solveKnapsackProblem()
+    save("test")
+  }
+
+  entry-point {
+    var knapsack = new Knapsack
+    knapsack.init()
+    knapsack.run(args)
+  }
+
 }
