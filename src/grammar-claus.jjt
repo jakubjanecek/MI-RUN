@@ -205,9 +205,6 @@ void MethodDeclaration():
   {
     System.out.println("[METHOD DECLARATION]: localVars=" + localVars);
     vim.newMethod(methodName.image, cp, localVars);
-    // TODO - Zavolat vytvoreni metody.
-    //Pointer cmp = vim.newMethodDictionary(asList(new Integer[]{vim.newMethod(methodName.image, cp, 0)}));
-    //classCar.$c().methods(cmp);
   }
 }
 
