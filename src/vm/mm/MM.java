@@ -62,7 +62,7 @@ public class MM {
     }
 
     public Pointer alloc(int size) {
-        System.out.println("Trying to allocate " + size + " bytes at " + firstFreeHeapByte);
+//        System.out.println("Trying to allocate " + size + " bytes at " + firstFreeHeapByte);
         Pointer p;
         int max = firstSpace ? space1[1] : space2[1];
         if (firstFreeHeapByte + size <= max) {
@@ -76,7 +76,7 @@ public class MM {
 
             firstFreeHeapByte = baker;
 
-            System.out.println("After Baker: " + firstFreeHeapByte);
+//            System.out.println("After Baker: " + firstFreeHeapByte);
 
             max = firstSpace ? space1[1] : space2[1];
             if (firstFreeHeapByte + size <= max) {
@@ -88,7 +88,7 @@ public class MM {
             }
         }
 
-        System.out.println("Allocated " + size + " bytes at " + p.address);
+//        System.out.println("Allocated " + size + " bytes at " + p.address);
         return p;
     }
 
@@ -107,10 +107,10 @@ public class MM {
         Map<Integer, Integer> stackReplaceTable = new HashMap<Integer, Integer>();
 
         for (Pointer root : rootSet) {
-            System.out.println("Baker: copying root " + root.address + " at " + nextAllocationPointer);
+//            System.out.println("Baker: copying root " + root.address + " at " + nextAllocationPointer);
             objectSizeInBytes = copyObject(root, nextAllocationPointer);
 
-            System.out.println("putting for replacement " + root.address);
+//            System.out.println("putting for replacement " + root.address);
             stackReplaceTable.put(root.address, nextAllocationPointer);
 
             // setting GC state
@@ -123,11 +123,11 @@ public class MM {
 
             nextAllocationPointer += objectSizeInBytes;
 
-            System.out.println("NEXT: " + nextAllocationPointer);
+//            System.out.println("NEXT: " + nextAllocationPointer);
         }
 
         while (scanPointer <= nextAllocationPointer) {
-            System.out.println("SCAN POINTER: " + scanPointer);
+//            System.out.println("SCAN POINTER: " + scanPointer);
 
             Pointer obj = new Pointer(scanPointer, this);
 
@@ -144,7 +144,7 @@ public class MM {
                     if (field.address >= 0) {
                         if (field.$().gcState() == GCState.NORMAL) {
                             if (field.$().marker() == MARKER) {
-                                System.out.println("Baker: copying field " + field.address + " at " + nextAllocationPointer);
+//                                System.out.println("Baker: copying field " + field.address + " at " + nextAllocationPointer);
                                 objectSizeInBytes = copyObject(field, nextAllocationPointer);
 
                                 obj.$p().field(i, new Pointer(nextAllocationPointer, this));
@@ -159,7 +159,7 @@ public class MM {
                                 // doesn't need to be copied, already there
                             }
                         } else {
-                            System.out.println("Baker: using FP " + field.address + " at " + field.$().clazz().address);
+//                            System.out.println("Baker: using FP " + field.address + " at " + field.$().clazz().address);
 
                             // using the forward pointer
                             obj.$p().field(i, field.$().clazz());
@@ -189,7 +189,7 @@ public class MM {
                 break;
         }
 
-        System.out.println("Copying object " + obj.address + " to " + to + " size " + objectSize);
+//        System.out.println("Copying object " + obj.address + " to " + to + " size " + objectSize);
         System.arraycopy(heap, obj.address, heap, to, objectSize);
 
         return objectSize;
@@ -204,7 +204,7 @@ public class MM {
             if (p.address >= 0) {
                 // is object
                 if (p.$unsafe().marker() == MARKER) {
-                    System.out.println("@@@ " + p.address + " # " + gcStackPointer);
+//                    System.out.println("@@@ " + p.address + " # " + gcStackPointer);
                     active.add(retrievePointer(stack, gcStackPointer));
                 } else {
                     // skipping not objects - integers such as return address and caller frame address
@@ -214,7 +214,7 @@ public class MM {
             gcStackPointer += REF_SIZE;
         }
 
-        System.out.println("Found " + active.size() + " on stack...");
+//        System.out.println("Found " + active.size() + " on stack...");
 
         return active;
     }
@@ -227,7 +227,7 @@ public class MM {
                 // is object
                 if (p.$unsafe().marker() == MARKER) {
                     if (table.containsKey(p.address)) {
-                        System.out.println("replacing on stack: " + p.address + " => " + (int) table.get(p.address));
+//                        System.out.println("replacing on stack: " + p.address + " => " + (int) table.get(p.address));
                         storeInt(stack, gcStackPointer, table.get(p.address));
                     }
                 } else {
@@ -568,10 +568,7 @@ public class MM {
     public void heapObjectsDump() {
         Pointer p = new Pointer(0, this);
         while (p.address <= firstFreeHeapByte) {
-            if (p.$().marker() != MARKER) {
-                System.out.println("bad");
-            }
-            System.out.println("@" + p.address + ": " + p.$().kind() + " " + p.$().clazz().$c().name() + " #" + p.$().size());
+//            System.out.println("@" + p.address + ": " + p.$().kind() + " " + p.$().clazz().$c().name() + " #" + p.$().size());
             int size = 0;
             switch (p.$().kind()) {
                 case POINTER_INDEXED:
