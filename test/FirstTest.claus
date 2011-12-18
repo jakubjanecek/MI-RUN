@@ -1,16 +1,39 @@
+/* First test class. */
 class FirstTest {
 
-  entry-point {
-    println("Main - zacatek.")
-    var ft = new FirstTest
-    ft.run()
-    println("Main - konec.")
+  var number = 0
+  
+  /* Initialization */
+  def init(): Nothing = {
+    number = 5
   }
-
-  def run() : Nothing = {
-    println("Run - zacatek.")
-    //println("Oukeeej... :)")
-    println("Run - konec.")
+  
+  /* Alpha */
+  def alpha(): Nothing = {
+    var num = (number + 1)
+    println(num)
+  }
+  
+  /* Omega */
+  def omega(): Nothing = {
+    var a = (number + 3)
+    var b = (number - 2)
+    println((a + b))
+  }
+  
+  /* Run all methods */
+  def run(): Nothing = {
+    alpha()
+    omega()
+  }
+  
+  /* Entry-point */
+  entry-point {
+    println("Zacatek kodu...")
+    var ft = new FirstTest
+    ft.init()
+    ft.run()
+    println("Konec kodu...")
   }
   
 }
