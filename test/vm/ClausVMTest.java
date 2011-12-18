@@ -4,7 +4,10 @@ import org.junit.Before;
 import org.junit.Test;
 import vm.mm.*;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 
 import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
@@ -241,33 +244,28 @@ public class ClausVMTest {
     }
 
     @Test
-    public void testTextFileReader() {
-        System.out.println(vm.classOfReader.$c().name());
-        System.out.println(vm.classOfReader.$c().name().equals("TextFileReader"));
-        System.out.println(vm.classOfReader.$p().fieldInt(0));
-        System.out.println(mm.constant(vm.classOfReader.$p().fieldInt(0)));
-
-        System.out.println();
-        System.out.println();
-
-        vm.getClazz(vm.classOfReader.$c().name());
+    public void testTextFileReader() throws IOException {
+        BufferedWriter bw = new BufferedWriter(new FileWriter("/Users/platinix/test.txt"));
+        bw.write("hello\n");
+        bw.write("world!");
+        bw.close();
 
         String[] entryPoint = new String[]{
                 "new " + vm.getClazz("TextFileReader").address,
-//                "push-local 0",
-//                "push-ref " + vm.newString(str2bytes("/Users/platinix/test.txt")).address,
-//                "pop-local 0",
-//                "call " + mm.addConstant("open"),
-//
-//                "pop-local 0",
-//                "call " + mm.addConstant("readLine"),
-//                "syscall " + Syscalls.calls2ints.get("print"),
-//                "pop-local 0",
-//                "call " + mm.addConstant("readLine"),
-//                "syscall " + Syscalls.calls2ints.get("print"),
-//
-//                "pop-local 0",
-//                "call " + mm.addConstant("close"),
+                "push-local 0",
+                "push-ref " + vm.newString(str2bytes("/Users/platinix/test.txt")).address,
+                "pop-local 0",
+                "call " + mm.addConstant("open"),
+
+                "pop-local 0",
+                "call " + mm.addConstant("readLine"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+                "pop-local 0",
+                "call " + mm.addConstant("readLine"),
+                "syscall " + Syscalls.calls2ints.get("print"),
+
+                "pop-local 0",
+                "call " + mm.addConstant("close"),
 
                 "return"
         };
@@ -275,6 +273,8 @@ public class ClausVMTest {
         CodePointer entryPointPointer = mm.storeCode(Util.translateBytecode(entryPoint));
 
         vm.run(entryPointPointer, 1);
+
+        new File("/Users/platinix/test.txt").delete();
     }
 
     @Test
@@ -300,6 +300,8 @@ public class ClausVMTest {
         CodePointer entryPointPointer = mm.storeCode(Util.translateBytecode(entryPoint));
 
         vm.run(entryPointPointer, 1);
+
+        new File("/Users/platinix/test1.txt").delete();
     }
 
     @Test

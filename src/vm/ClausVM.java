@@ -25,8 +25,6 @@ public class ClausVM {
 
     private Pointer classOfInteger;
 
-    public Pointer classOfReader;
-
     private List<BufferedReader> inputHandles;
     private List<BufferedWriter> outputHandles;
 
@@ -76,26 +74,18 @@ public class ClausVM {
         classOfArray = library.createArrayClass();
         library.finishArrayClass(classOfArray);
 
-//        Pointer mDict = classOfArray.$c().methods();
-//        MM.Clazz arrC = mDict.$c();
-//        arrC.name();
-
         // Now that we are able to create method dictionaries we can finish the Object class and put some methods in it.
         byte[] methodBytecode = new byte[]{Bytecode.strings2bytecodes.get("return").code};
         CodePointer methodPointer = mm.storeCode(methodBytecode);
         Pointer methodDictionaryOfObject = newMethodDictionary(asList(new Integer[]{newMethod("getObjectID", methodPointer, 0)}));
         classOfObject.$c().methods(methodDictionaryOfObject);
 
-//        Pointer methodDict = classOfObject.$c().methods();
-//        MM.Clazz c = methodDict.$c();
-//        c.name();
-
         // Everything is bootstrapped now, we can start creating library classes.
         classOfInteger = library.createIntegerClass();
         classOfString = library.createStringClass();
 
         // Finishing the library.
-        classOfReader = library.createTextFileReaderClass();
+        library.createTextFileReaderClass();
         library.createTextFileWriterClass();
     }
 
