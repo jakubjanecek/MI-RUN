@@ -23,6 +23,7 @@ class Claus {
   public ArrayList<String> codeLines;
   public Pointer inputClass;
   public boolean inMethod = false;
+  public int fields = 0;
   public int localVars = 0;
   
   public static void main(String[] args) {
@@ -149,7 +150,7 @@ ASTClass Class():
   <CLASS_KW> className=<ID> <LBRACE> ClassBody() <RBRACE>
   <EOF>
   {
-    inputClass = vim.newClazz(vm.Util.str2bytes(className.image), 0);
+    inputClass = vim.newClazz(className.image, fields);
     jjtThis.value = className.image;
     return jjtThis;
   }
@@ -274,8 +275,10 @@ void VariableDeclaration():
   {
     //System.out.println("DEKLARACE PROMENNE: " + varName.image + "=" + s);
     System.out.println("VARIABLE DECLARATION: " + varName.image + "=<EXPRESSION>");
-    if (inMethod) {
+    if (inMethod) { // v metode = lokalni promenne
       localVars++;
+    } else { // ve tride = fieldy
+      fields++;
     }
   }
 }
