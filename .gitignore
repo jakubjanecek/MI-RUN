@@ -2,3 +2,6 @@ bin
 out
 git.key
 git.key.pub
+dist
+dist/build.sh
+dist/run.sh
