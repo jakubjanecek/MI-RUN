@@ -508,13 +508,13 @@ void IntegerValue():
 {
   t=<INTEGER>
   {
-    System.out.println("INTEGER: " + t.image);
+    //System.out.println("INTEGER: " + t.image);
     if (inDeclaration) {
-      if (inMethod) { // deklarace lokalni promenne
+      if (inMethod) {
         codeLines.add("new-int " + t.image);
         codeLines.add("push-local " + localVars);
         codeLines.add("return");
-      } else { // deklarace fieldu
+      } else {
         codeLines.add("new-int " + t.image);
         codeLines.add("push-int " + fields);
         codeLines.add("new-int " + t.image);
@@ -533,7 +533,20 @@ void TrueValue():
 {
   t=<TRUE_KW>
   {
-    System.out.println("TRUE: " + t.image);
+    //System.out.println("TRUE: " + t.image);
+    if (inDeclaration) {
+      if (inMethod) {
+        codeLines.add("new-int 1");
+        codeLines.add("push-local " + localVars);
+        codeLines.add("return");
+      } else {
+        codeLines.add("new-int " + t.image);
+        codeLines.add("push-int " + fields);
+        codeLines.add("new-int 1");
+        codeLines.add("set-field");
+        codeLines.add("return");
+      }
+    }
   }
 }
 
@@ -545,7 +558,20 @@ void FalseValue():
 {
   t=<FALSE_KW>
   {
-    System.out.println("INTEGER: " + t.image);
+    //System.out.println("INTEGER: " + t.image);
+    if (inDeclaration) {
+      if (inMethod) {
+        codeLines.add("new-int 0");
+        codeLines.add("push-local " + localVars);
+        codeLines.add("return");
+      } else {
+        codeLines.add("new-int " + t.image);
+        codeLines.add("push-int " + fields);
+        codeLines.add("new-int 0");
+        codeLines.add("set-field");
+        codeLines.add("return");
+      }
+    }
   }
 }
 
@@ -557,7 +583,20 @@ void StringValue():
 {
   t=<STRING>
   {
-    System.out.println("INTEGER: " + t.image);
+    //System.out.println("STRING: " + t.image);
+    if (inDeclaration) {
+      if (inMethod) {
+        codeLines.add("new-str " + t.image);
+        codeLines.add("push-local " + localVars);
+        codeLines.add("return");
+      } else {
+        codeLines.add("new-str " + t.image);
+        codeLines.add("push-str " + fields);
+        codeLines.add("new-str " + t.image);
+        codeLines.add("set-field");
+        codeLines.add("return");
+      }
+    }
   }
 }
 
