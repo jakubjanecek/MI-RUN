@@ -92,6 +92,8 @@ public class ClausVM {
     public Pointer newObject(Pointer clazz, int size) {
         Pointer newObject = mm.alloc(mm.pointerIndexedObjectSize(size));
 
+        debug("CREATING OBJECT AT " + newObject.address + " OF " + clazz.$c().name());
+
         if (newObject == null) {
             throw new RuntimeException("Not enough memory!");
         }
@@ -121,6 +123,8 @@ public class ClausVM {
         int CLASS_SIZE = 5;
 
         Pointer newClass = mm.alloc(mm.pointerIndexedObjectSize(CLASS_SIZE));
+
+        debug("CREATING CLASS '" + name + "' AT " + newClass.address);
 
         if (newClass == null) {
             throw new RuntimeException("Not enough memory!");
@@ -171,6 +175,8 @@ public class ClausVM {
     public Pointer newMethodDictionary(List<Integer> methods) {
         Pointer methodDictionary = newObject(classOfArray, methods.size());
 
+        debug("CREATING DICTIONARY AT " + methodDictionary.address);
+
         for (int i = 0; i < methods.size(); i++) {
             methodDictionary.$p().fieldInt(i, methods.get(i));
         }
@@ -186,6 +192,8 @@ public class ClausVM {
 
     public Pointer newString(byte[] str) {
         Pointer newString = mm.alloc(mm.byteIndexedObjectSize(str.length));
+
+        debug("CREATING STRING '" + new String(str) + "' AT " + newString.address);
 
         if (newString == null) {
             throw new RuntimeException("Not enough memory!");
@@ -203,6 +211,8 @@ public class ClausVM {
 
     public Pointer newInteger(byte[] integer) {
         Pointer newInteger = mm.alloc(mm.byteIndexedObjectSize(MM.WORD_SIZE));
+
+        debug("CREATING INT '" + bytes2int(integer) + "' AT " + newInteger.address);
 
         if (newInteger == null) {
             throw new RuntimeException("Not enough memory!");

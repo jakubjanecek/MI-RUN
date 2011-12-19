@@ -65,4 +65,11 @@ public class Util {
         }
     }
 
+    public static void debug(String debugMsg) {
+        boolean debug = false;
+        if (debug) {
+            System.out.println(debugMsg);
+        }
+    }
+
 }

@@ -13,7 +13,7 @@ public class KnapsackManual {
     private Pointer knapsackClass;
 
     public static void main(String[] args) {
-        int memSize = 256 * 12;
+        int memSize = 128 * 24;
         MM mm = new MM(memSize, memSize, memSize);
         ClausVM vm = new ClausVM(mm);
 

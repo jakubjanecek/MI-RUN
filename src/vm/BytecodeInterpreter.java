@@ -226,7 +226,10 @@ public class BytecodeInterpreter {
                     break;
                 // cast-str-int
                 case 0x21:
-                    mm.pushPointer(vm.newInteger(int2bytes(Integer.valueOf(bytes2str(mm.popPointer().$b().bytes())))));
+                    Pointer intAsString = mm.popPointer();
+                    byte[] converted = int2bytes(Integer.valueOf(bytes2str(intAsString.$b().bytes())));
+                    Pointer newInt = vm.newInteger(converted);
+                    mm.pushPointer(newInt);
                     break;
                 // get-field-dyn
                 case 0x22:

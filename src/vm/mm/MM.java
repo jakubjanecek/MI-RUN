@@ -6,6 +6,8 @@ import vm.Util;
 import java.io.PrintWriter;
 import java.util.*;
 
+import static vm.Util.debug;
+
 public class MM {
 
     public static final int INSTR_SIZE = 1;
@@ -20,6 +22,8 @@ public class MM {
     public static final byte MARKER = (byte) 0xF0;
 
     public static final byte FREE_MARKER = (byte) -1;
+
+    public static final int FRAME_MARKER = 999;
 
     public final Pointer NULL = new Pointer(0xFFFFFFFF, this);
 
@@ -62,7 +66,7 @@ public class MM {
     }
 
     public Pointer alloc(int size) {
-//        System.out.println("Trying to allocate " + size + " bytes at " + firstFreeHeapByte);
+        // System.out.println("Trying to allocate " + size + " bytes at " + firstFreeHeapByte);
         Pointer p;
         int max = firstSpace ? space1[1] : space2[1];
         if (firstFreeHeapByte + size <= max) {
@@ -76,12 +80,12 @@ public class MM {
             flip();
             int freeAfter = firstSpace ? (space1[1] - baker) : (space2[1] - baker);
 
-            System.out.println("Before GC: " + freeBefore + " B");
-            System.out.println("After GC: " + freeAfter + " B");
+            System.out.println(freeAfter - freeBefore + " bytes made free.");
+
+            // System.out.println("Before GC: " + freeBefore + " B");
+            // System.out.println("After GC: " + freeAfter + " B");
 
             firstFreeHeapByte = baker;
-
-//            System.out.println("After Baker: " + firstFreeHeapByte);
 
             max = firstSpace ? space1[1] : space2[1];
             if (firstFreeHeapByte + size <= max) {
@@ -93,12 +97,12 @@ public class MM {
             }
         }
 
-//        System.out.println("Allocated " + size + " bytes at " + p.address);
+        // System.out.println("Allocated " + size + " bytes at " + p.address);
         return p;
     }
 
     public int baker() {
-        System.out.println("Starting Baker...");
+        System.out.println("Baker Garbage Collector");
 
         Set<Pointer> rootSet = new HashSet<Pointer>(classes);
         rootSet.addAll(methodDictionaries);
@@ -112,10 +116,10 @@ public class MM {
         Map<Integer, Integer> stackReplaceTable = new HashMap<Integer, Integer>();
 
         for (Pointer root : rootSet) {
-//            System.out.println("Baker: copying root " + root.address + " at " + nextAllocationPointer);
+            // System.out.println("Baker: copying root " + root.address + " at " + nextAllocationPointer);
             objectSizeInBytes = copyObject(root, nextAllocationPointer);
 
-//            System.out.println("putting for replacement " + root.address);
+            // System.out.println("putting for replacement " + root.address);
             stackReplaceTable.put(root.address, nextAllocationPointer);
 
             // setting GC state
@@ -128,11 +132,11 @@ public class MM {
 
             nextAllocationPointer += objectSizeInBytes;
 
-//            System.out.println("NEXT: " + nextAllocationPointer);
+            // System.out.println("NEXT: " + nextAllocationPointer);
         }
 
-        while (scanPointer <= nextAllocationPointer) {
-//            System.out.println("SCAN POINTER: " + scanPointer);
+        while (scanPointer < nextAllocationPointer) {
+            // System.out.println("SCAN POINTER: " + scanPointer);
 
             Pointer obj = new Pointer(scanPointer, this);
 
@@ -148,8 +152,8 @@ public class MM {
 
                     if (field.address >= 0) {
                         if (field.$().gcState() == GCState.NORMAL) {
-                            if (field.$().marker() == MARKER) {
-//                                System.out.println("Baker: copying field " + field.address + " at " + nextAllocationPointer);
+                            if (field.$unsafe().marker() == MARKER) {
+                                // System.out.println("Baker: copying field " + field.address + " at " + nextAllocationPointer);
                                 objectSizeInBytes = copyObject(field, nextAllocationPointer);
 
                                 obj.$p().field(i, new Pointer(nextAllocationPointer, this));
@@ -164,7 +168,7 @@ public class MM {
                                 // doesn't need to be copied, already there
                             }
                         } else {
-//                            System.out.println("Baker: using FP " + field.address + " at " + field.$().clazz().address);
+                            // System.out.println("Baker: using FP " + field.address + " at " + field.$().clazz().address);
 
                             // using the forward pointer
                             obj.$p().field(i, field.$().clazz());
@@ -194,7 +198,7 @@ public class MM {
                 break;
         }
 
-//        System.out.println("Copying object " + obj.address + " to " + to + " size " + objectSize);
+        // System.out.println("Copying object " + obj.address + " to " + to + " size " + objectSize);
         System.arraycopy(heap, obj.address, heap, to, objectSize);
 
         return objectSize;
@@ -209,7 +213,7 @@ public class MM {
             if (p.address >= 0) {
                 // is object
                 if (p.$unsafe().marker() == MARKER) {
-//                    System.out.println("@@@ " + p.address + " # " + gcStackPointer);
+                    // System.out.println("@@@ " + p.address + " # " + gcStackPointer);
                     active.add(retrievePointer(stack, gcStackPointer));
                 } else {
                     // skipping not objects - integers such as return address and caller frame address
@@ -219,7 +223,7 @@ public class MM {
             gcStackPointer += REF_SIZE;
         }
 
-//        System.out.println("Found " + active.size() + " on stack...");
+        // System.out.println("Found " + active.size() + " on stack...");
 
         return active;
     }
@@ -228,11 +232,13 @@ public class MM {
         int gcStackPointer = 0;
         while (gcStackPointer <= stackPointer) {
             Pointer p = retrievePointer(stack, gcStackPointer);
+            // gcStackPointer != 4 ensures, that return address (second field in the very first frame)
+            // is not misdetected as object at address 0, which is a Metaclass class
             if (p.address >= 0) {
                 // is object
                 if (p.$unsafe().marker() == MARKER) {
                     if (table.containsKey(p.address)) {
-//                        System.out.println("replacing on stack: " + p.address + " => " + (int) table.get(p.address));
+                        debug("replacing on stack at " + gcStackPointer + ": " + p.address + " => " + (int) table.get(p.address));
                         storeInt(stack, gcStackPointer, table.get(p.address));
                     }
                 } else {
@@ -256,21 +262,12 @@ public class MM {
         }
     }
 
-    public void free(Pointer obj) {
-        int objectSize = 0;
-        switch (obj.$().kind()) {
-            case POINTER_INDEXED:
-                objectSize = pointerIndexedObjectSize(obj.$().size());
-            case BYTE_INDEXED:
-                objectSize = byteIndexedObjectSize(obj.$().size());
-        }
-        clear(heap, obj.address, objectSize);
-    }
-
     public void newFrame(int numOfLocals) {
+        debug("STACK FRAME WITH " + numOfLocals + " LOCALS AT " + stackPointer);
+
         int caller = basePointer;
         basePointer = stackPointer;
-        pushInt(caller);
+        pushInt(caller - FRAME_MARKER);
         pushInt(programCounter.address);
         for (int i = 0; i < numOfLocals; i++) {
             pushPointer(NULL);
@@ -278,10 +275,12 @@ public class MM {
     }
 
     public CodePointer discardFrame() {
+        debug("DISCARDING FRAME AT " + basePointer);
+
         int currentBasePointer = basePointer;
         int currentStackPointer = stackPointer;
 
-        int caller = retrieveInt(stack, basePointer);
+        int caller = retrieveInt(stack, basePointer) + FRAME_MARKER;
         int returnAddress = retrieveInt(stack, basePointer + WORD_SIZE);
 
         basePointer = caller;
@@ -299,6 +298,7 @@ public class MM {
 
     public void pushInt(int num) {
         if (this.stackPointer + WORD_SIZE <= stack.length) {
+            debug("STACK INT AT " + stackPointer + " VAL " + num);
             storeInt(stack, stackPointer, num);
             this.stackPointer += WORD_SIZE;
         } else {
@@ -308,6 +308,7 @@ public class MM {
 
     public void pushPointer(Pointer object) {
         if (this.stackPointer + WORD_SIZE <= stack.length) {
+            debug("STACK * AT " + stackPointer + " VAL " + object.address);
             storePointer(stack, stackPointer, object);
             this.stackPointer += WORD_SIZE;
         } else {
@@ -318,6 +319,7 @@ public class MM {
     public int popInt() {
         if (this.stackPointer - WORD_SIZE >= 0) {
             this.stackPointer -= WORD_SIZE;
+            debug("STACKPOP INT AT " + stackPointer);
             int i = retrieveInt(stack, this.stackPointer);
             clear(stack, this.stackPointer, WORD_SIZE);
             return i;
@@ -329,6 +331,7 @@ public class MM {
     public Pointer popPointer() {
         if (this.stackPointer - WORD_SIZE >= 0) {
             this.stackPointer -= WORD_SIZE;
+            debug("STACKPOP * AT " + stackPointer);
             Pointer p = retrievePointer(stack, this.stackPointer);
             clear(stack, this.stackPointer, WORD_SIZE);
             return p;
@@ -339,11 +342,17 @@ public class MM {
 
     public void arg(int index, Pointer val) {
         int address = basePointer - WORD_SIZE - (index * WORD_SIZE);
+
+        debug("STACK ARGUMENT AT " + index + " ADDRESS " + address + " VAL " + val.address);
+
         storePointer(stack, address, val);
     }
 
     public Pointer arg(int index) {
         int address = basePointer - WORD_SIZE - (index * WORD_SIZE);
+
+        debug("STACKPOP ARGUMENT AT " + index + " ADDRESS " + address);
+
         Pointer p = retrievePointer(stack, address);
         return p;
     }
@@ -351,12 +360,18 @@ public class MM {
     public void local(int index, Pointer val) {
         // caller + return address + local at position
         int address = basePointer + WORD_SIZE + WORD_SIZE + (index * WORD_SIZE);
+
+        debug("STACK LOCAL AT " + index + " ADDRESS " + address + " VAL " + val.address);
+
         storePointer(stack, address, val);
     }
 
     public Pointer local(int index) {
         // caller + return address + local at position 
         int address = basePointer + WORD_SIZE + WORD_SIZE + (index * WORD_SIZE);
+
+        debug("STACKPOP LOCAL AT " + index + " ADDRESS " + address);
+
         Pointer p = retrievePointer(stack, address);
         return p;
     }
