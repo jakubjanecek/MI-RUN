@@ -4,4 +4,4 @@ Use build.sh script to compile it. Java compiler must be in the PATH environment
 
 RUN
 ----
-Use run.sh to run samples.
+Use run.sh to run samples and tests.
