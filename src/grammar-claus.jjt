@@ -15,17 +15,21 @@
 PARSER_BEGIN(Claus)
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import vm.mm.*;
 
 class Claus {
   public static MM mem;
   public static vm.ClausVM vim;
-  public ArrayList<String> codeLines;
+  public String className;
   public Pointer inputClass;
   public boolean inMethod = false;
   public boolean inDeclaration = false;
+  public boolean isAssignment = false;
   public int fields = 0;
   public int localVars = 0;
+  public ArrayList<Integer> methodList = new ArrayList<Integer>();
+  public ArrayList<String> codeLines = new ArrayList<String>();
   
   public static void main(String[] args) {
     try {
@@ -145,14 +149,21 @@ TOKEN: {
 //* Class */
 ASTClass Class():
 {
-  Token className;
+  Token t;
 }
 {
-  <CLASS_KW> className=<ID> <LBRACE> ClassBody() <RBRACE>
+  <CLASS_KW> t=<ID>
+  {
+    className = t.image;
+  } <LBRACE> ClassBody() <RBRACE>
   <EOF>
   {
-    inputClass = vim.newClazz(className.image, fields);
-    jjtThis.value = className.image;
+    System.out.println("\n[CODE]:");
+    for (int x = 0; x < codeLines.size(); x++) {
+      System.out.println(codeLines.get(x));
+    }
+    System.out.println("");
+    jjtThis.value = className;
     return jjtThis;
   }
 }
@@ -163,10 +174,11 @@ void ClassBody():
 {
   (Declaration())*
   {
+    System.out.println("[INFO]\tNumber of fields: " + fields);
   }
 }
 
-/* Declaration */
+//* Declaration */
 void Declaration():
 {
   //System.out.println("[DECLARATION]");
@@ -175,21 +187,26 @@ void Declaration():
     VariableDeclaration()
   | MethodDeclaration()
   | EntryPoint()
-  {
-  }
 }
 
 //* Entry-point */
 void EntryPoint():
 {
-  System.out.println("[ENTRY-POINT] BEGIN.");
   CodePointer cp;
 }
 {
   <ENTRYPOINT_KW> <LBRACE> cp=MethodBody() <RBRACE>
   {
-    vim.run(cp);
-    System.out.println("[ENTRY-POINT] END.");
+    inputClass = vim.newClazz(className, fields);
+    
+    // add code
+    codeLines.add("new " + inputClass.address);
+    codeLines.add("push-local 0");
+    
+    inputClass.$c().methods(vim.newMethodDictionary(methodList));
+    System.out.println("[INFO]\tNumber of methods: " + methodList.size());
+    
+    vim.run(cp, localVars); // TODO - Check second param value
   }
 }
 
@@ -199,15 +216,14 @@ void MethodDeclaration():
   Token t;
   CodePointer cp;
   localVars = 0;
-  //int vi = 0;
 }
 {
   <DEF_KW> t=<ID> <LPAREN> MethodArgumentDeclarationList() <RPAREN> TypeSpecifier() <DECLARATION_EQUALS> <LBRACE>
     cp=MethodBody()
   <RBRACE>
   {
-    System.out.println("[METHOD DECLARATION]: localVars=" + localVars);
-    vim.newMethod(t.image, cp, localVars);
+    System.out.println("[INFO]\tNumber of local variables: " + localVars);
+    methodList.add(vim.newMethod(t.image, cp, localVars)); // localVars=1?
   }
 }
 
@@ -249,19 +265,21 @@ CodePointer MethodBody():
 
 /* Block */
 CodePointer Block():
-{}
+{
+  //codeLines = new ArrayList<String>();
+}
 {
   (Statement())*
   {
-    // TODO - FIXME.
-    String[] code = new String[]{
-      "new-int 10",
-      "new-int 20",
-      "call " + mem.addConstant("add"),
-      "syscall " + vm.Syscalls.calls2ints.get("print-int"),
-      "return"
-    };
-    return mem.storeCode(vm.Util.translateBytecode(code));
+    // TODO - Remove.
+    codeLines.add("new-int 10");
+    codeLines.add("new-int 20");
+    codeLines.add("call " + mem.addConstant("add"));
+    codeLines.add("syscall " + vm.Syscalls.calls2ints.get("print-int"));
+    codeLines.add("return");
+    
+    String[] codeArray = new String[codeLines.size()];
+    return mem.storeCode(vm.Util.translateBytecode(codeLines.toArray(codeArray)));
   }
 }
 
@@ -275,16 +293,9 @@ void VariableDeclaration():
   <VAR_KW> varName=<ID> [TypeSpecifier()] <DECLARATION_EQUALS> Expression()
   {
     System.out.println("VARIABLE DECLARATION: " + varName.image + "=<EXPRESSION>");
-    if (inMethod) { // v metode = lokalni promenne
-      // pridat hodnotu promenne do lokalni promenne na stack
-      // <push-local index> --> udelat v expression
+    if (inMethod) {
       localVars++;
-    } else { // ve tride = fieldy
-      // pridat pointer na objekt na stack
-      // pridat index objektu na stack
-      // pridat hodnotu objektu do fieldu na stack
-      // 
-      // <set-field index> --> udelat v expression
+    } else {
       fields++;
     }
     inDeclaration = false;
@@ -326,8 +337,6 @@ void Expression():
   | SimpleValue()
   {
     System.out.println("<EXPRESSION>");
-    //return ("EXPRESSION: " + s);
-    //codeLines.add("EXPRESSION: " + s);
   }
 }
 
@@ -341,30 +350,28 @@ void MethodCall():
     <ID> <PERIOD> t=<ID> <LPAREN> [MethodArgumentList()] <RPAREN>
   | t=<ID> <LPAREN> [MethodArgumentList()] <RPAREN>
   {
-    //return ("METHOD CALL: " + t.image);
-    System.out.println("METHOD CALL: " + t.image);
+    String mName = t.image;
+    //System.out.println("METHOD CALL: " + mName);
+    
+    // add code
+    codeLines.add("pop-local " + localVars);
+    codeLines.add("call " + mem.addConstant(mName));
+    codeLines.add("return");
   }
 }
 
 /* Mathod argument list */
 void MethodArgumentList():
-{
-  //String s1;
-  //String s2;
-}
+{}
 {
   Expression() MethodArgumentListExtension()
   {
-    //System.out.println("METHOD ARGUMENT LIST: (" + s1 + s2 + ")");
   }
 }
 
 /* Mathod argument list extension */
 void MethodArgumentListExtension():
-{
-  //String s = "";
-  //String a = "";
-}
+{}
 {
   (<COMMA> Expression())*
   {
@@ -386,12 +393,14 @@ void Instantiation():
 /* Assignment */
 void Assignment():
 {
+  isAssignment = true;
   Token t;
 }
 {
   t=<ID> ArrayIndexing() <DECLARATION_EQUALS> Expression()
   {
     System.out.println("ASSIGNMENT: " + t.image);
+    isAssignment = false;
   }
 }
 
@@ -500,6 +509,19 @@ void IntegerValue():
   t=<INTEGER>
   {
     System.out.println("INTEGER: " + t.image);
+    if (inDeclaration) {
+      if (inMethod) { // deklarace lokalni promenne
+        codeLines.add("new-int " + t.image);
+        codeLines.add("push-local " + localVars);
+        codeLines.add("return");
+      } else { // deklarace fieldu
+        codeLines.add("new-int " + t.image);
+        codeLines.add("push-int " + fields);
+        codeLines.add("push-int " + t.image);
+        codeLines.add("set-field");
+        codeLines.add("return");
+      }
+    }
   }
 }
 
