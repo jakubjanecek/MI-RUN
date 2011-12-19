@@ -90,9 +90,17 @@ public class LibraryClasses {
         };
         CodePointer appendMethod = mm.storeCode(Util.translateBytecode(appendBC));
 
+        String[] splitBC = new String[]{
+                "pop-arg 0",
+                "syscall " + Syscalls.calls2ints.get("str-split"),
+                "return-top"
+        };
+        CodePointer splitMethod = mm.storeCode(Util.translateBytecode(splitBC));
+
         Pointer methodDictionaryOfObject = vm.newMethodDictionary(asList(new Integer[]{
                 vm.newMethod("length", lengthMethod, 0),
                 vm.newMethod("append", appendMethod, 0),
+                vm.newMethod("split", splitMethod, 0),
         }));
         clazz.$c().methods(methodDictionaryOfObject);
 

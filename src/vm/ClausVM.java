@@ -228,7 +228,7 @@ public class ClausVM {
             mm.newFrame(method.numOfLocals());
             interpreter.jump(method.bytecodePointer());
         } else {
-            throw new RuntimeException("Method '" + selector + "' not found in class '" + objectClass.$c().name() + "'");
+            throw new RuntimeException("Method '" + selector + "' not found in class.");
         }
     }
 
@@ -386,6 +386,19 @@ public class ClausVM {
             @Override
             public void call() {
                 mm.pushPointer(newInteger(int2bytes(mm.popPointer().$().size())));
+            }
+        });
+
+        Syscalls.ints2calls.put(12, new Syscall("str-split") {
+            @Override
+            public void call() {
+                String str = bytes2str(mm.popPointer().$b().bytes());
+                String[] splitted = str.split(" ");
+                Pointer arr = newArray(splitted.length);
+                for (int i = 0; i < splitted.length; i++) {
+                    arr.$p().field(i, newString(str2bytes(splitted[i])));
+                }
+                mm.pushPointer(arr);
             }
         });
 

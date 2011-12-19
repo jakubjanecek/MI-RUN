@@ -224,6 +224,10 @@ public class BytecodeInterpreter {
                         jump(mm.getPC().arith(offset));
                     }
                     break;
+                // cast-str-int
+                case 0x21:
+                    mm.pushPointer(vm.newInteger(int2bytes(Integer.valueOf(bytes2str(mm.popPointer().$b().bytes())))));
+                    break;
                 default:
                     throw new RuntimeException("Unknown instruction.");
             }
