@@ -443,7 +443,7 @@ public class MM {
     }
 
     private void clear(byte[] what, int from, int size) {
-        for (int i = from; i < from + size; i++) {
+        for (int i = from; i < from + size && from + size < what.length; i++) {
             what[i] = FREE_MARKER;
         }
     }

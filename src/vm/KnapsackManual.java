@@ -53,6 +53,11 @@ public class KnapsackManual {
         knapsackClass = vm.newClazz("Knapsack", 6);
 
         String[] init = new String[]{
+                "pop-arg 0",
+                "push-int 5",
+                "get-field",
+                "syscall " + Syscalls.calls2ints.get("print"),
+
                 // split input
                 "pop-arg 0",
                 "push-int 5",
