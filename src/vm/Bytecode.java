@@ -42,6 +42,8 @@ public class Bytecode {
             put("jmp-lt-int", new BytecodeInstruction(int2Byte(0x1E), 1));
             put("jmp-le-int", new BytecodeInstruction(int2Byte(0x1F), 1));
             put("cast-str-int", new BytecodeInstruction(int2Byte(0x21), 0));
+            put("get-field-dyn", new BytecodeInstruction(int2Byte(0x22), 0));
+            put("set-field-dyn", new BytecodeInstruction(int2Byte(0x23), 0));
         }
     };
 

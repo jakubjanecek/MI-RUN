@@ -92,7 +92,7 @@ public class ClausVMTest {
 
     @Test
     public void openFile() {
-        String filename = "/Users/platinix/test.out";
+        String filename = "test.out";
         mm.pushPointer(vm.newString(str2bytes(filename)));
         Syscalls.ints2calls.get(Syscalls.calls2ints.get("open-file-w")).call();
 
@@ -103,7 +103,7 @@ public class ClausVMTest {
 
     @Test
     public void writeAndCloseFile() {
-        String filename = "/Users/platinix/test1.out";
+        String filename = "test1.out";
         mm.pushPointer(vm.newString(str2bytes(filename)));
         Syscalls.ints2calls.get(Syscalls.calls2ints.get("open-file-w")).call();
 
@@ -121,7 +121,7 @@ public class ClausVMTest {
 
     @Test
     public void writeAndReadAndCloseFile() {
-        String filename = "/Users/platinix/test2.out";
+        String filename = "test2.out";
         mm.pushPointer(vm.newString(str2bytes(filename)));
         Syscalls.ints2calls.get(Syscalls.calls2ints.get("open-file-w")).call();
 
@@ -245,7 +245,7 @@ public class ClausVMTest {
 
     @Test
     public void testTextFileReader() throws IOException {
-        BufferedWriter bw = new BufferedWriter(new FileWriter("/Users/platinix/test.txt"));
+        BufferedWriter bw = new BufferedWriter(new FileWriter("test.txt"));
         bw.write("hello\n");
         bw.write("world!");
         bw.close();
@@ -253,7 +253,7 @@ public class ClausVMTest {
         String[] entryPoint = new String[]{
                 "new " + vm.getClazz("TextFileReader").address,
                 "push-local 0",
-                "push-ref " + vm.newString(str2bytes("/Users/platinix/test.txt")).address,
+                "push-ref " + vm.newString(str2bytes("test.txt")).address,
                 "pop-local 0",
                 "call " + mm.addConstant("open"),
 
@@ -274,7 +274,7 @@ public class ClausVMTest {
 
         vm.run(entryPointPointer, 1);
 
-        new File("/Users/platinix/test.txt").delete();
+        new File("test.txt").delete();
     }
 
     @Test
@@ -282,7 +282,7 @@ public class ClausVMTest {
         String[] entryPoint = new String[]{
                 "new " + vm.getClazz("TextFileWriter").address,
                 "push-local 0",
-                "push-ref " + vm.newString(str2bytes("/Users/platinix/test1.txt")).address,
+                "push-ref " + vm.newString(str2bytes("test1.txt")).address,
                 "pop-local 0",
                 "call " + mm.addConstant("open"),
 
@@ -301,7 +301,7 @@ public class ClausVMTest {
 
         vm.run(entryPointPointer, 1);
 
-        new File("/Users/platinix/test1.txt").delete();
+        new File("test1.txt").delete();
     }
 
     @Test

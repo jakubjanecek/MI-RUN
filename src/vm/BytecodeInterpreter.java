@@ -228,6 +228,19 @@ public class BytecodeInterpreter {
                 case 0x21:
                     mm.pushPointer(vm.newInteger(int2bytes(Integer.valueOf(bytes2str(mm.popPointer().$b().bytes())))));
                     break;
+                // get-field-dyn
+                case 0x22:
+                    index = bytes2int(mm.popPointer().$b().bytes());
+                    obj = mm.popPointer();
+                    mm.pushPointer(obj.$p().field(index));
+                    break;
+                // set-field-dyn
+                case 0x23:
+                    setValue = mm.popPointer();
+                    index = bytes2int(mm.popPointer().$b().bytes());
+                    obj = mm.popPointer();
+                    obj.$p().field(index, setValue);
+                    break;
                 default:
                     throw new RuntimeException("Unknown instruction.");
             }

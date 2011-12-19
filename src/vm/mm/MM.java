@@ -71,8 +71,13 @@ public class MM {
             firstFreeHeapByte += size;
         } else {
             // garbage collection
+            int freeBefore = firstSpace ? (space1[1] - firstFreeHeapByte) : (space2[1] - firstFreeHeapByte);
             int baker = baker();
             flip();
+            int freeAfter = firstSpace ? (space1[1] - baker) : (space2[1] - baker);
+
+            System.out.println("Before GC: " + freeBefore + " B");
+            System.out.println("After GC: " + freeAfter + " B");
 
             firstFreeHeapByte = baker;
 
