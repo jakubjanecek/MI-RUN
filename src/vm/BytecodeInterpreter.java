@@ -38,6 +38,7 @@ public class BytecodeInterpreter {
                     if (jumpAddress == null) {
                         interpret = false;
                     } else {
+                        mm.popPointer();
                         jump(jumpAddress);
                     }
                     break;
@@ -45,10 +46,11 @@ public class BytecodeInterpreter {
                 case 0x04:
                     Pointer returnValue = mm.popPointer();
                     jumpAddress = mm.discardFrame();
-                    mm.pushPointer(returnValue);
                     if (jumpAddress == null) {
                         interpret = false;
                     } else {
+                        mm.popPointer();
+                        mm.pushPointer(returnValue);
                         jump(jumpAddress);
                     }
                     break;
@@ -87,7 +89,7 @@ public class BytecodeInterpreter {
                 case 0xB:
                     mm.popInt();
                     break;
-                // push-local index val-pointer
+                // push-local index
                 case 0x0C:
                     index = mm.getIntFromBC();
                     obj = mm.popPointer();
@@ -168,6 +170,7 @@ public class BytecodeInterpreter {
                 // jmp
                 case 0x19:
                     int offset = mm.getIntFromBC();
+                    debug("jmp " + offset);
                     jump(mm.getPC().arith(offset));
                     break;
                 // jmp-eq-int
@@ -202,7 +205,9 @@ public class BytecodeInterpreter {
                     offset = mm.getIntFromBC();
                     i2 = bytes2int(mm.popPointer().$b().bytes());
                     i1 = bytes2int(mm.popPointer().$b().bytes());
+                    debug("jmp-ge-int: " + i1 + " >= " + i2);
                     if (i1 >= i2) {
+                        debug("jmp-ge-int jumped");
                         jump(mm.getPC().arith(offset));
                     }
                     break;
@@ -243,6 +248,13 @@ public class BytecodeInterpreter {
                     index = bytes2int(mm.popPointer().$b().bytes());
                     obj = mm.popPointer();
                     obj.$p().field(index, setValue);
+                    break;
+                // cast-int-str
+                case 0x24:
+                    Pointer stringAsInt = mm.popPointer();
+                    converted = str2bytes(String.valueOf(bytes2int(stringAsInt.$b().bytes())));
+                    Pointer newStr = vm.newString(converted);
+                    mm.pushPointer(newStr);
                     break;
                 default:
                     throw new RuntimeException("Unknown instruction.");

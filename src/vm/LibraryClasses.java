@@ -174,6 +174,7 @@ public class LibraryClasses {
                 "push-int 0",
                 "get-field",
                 "syscall " + Syscalls.calls2ints.get("read-line"),
+
                 "return-top"
         };
         CodePointer readLineMethod = mm.storeCode(Util.translateBytecode(readLineBC));

@@ -44,6 +44,7 @@ public class Bytecode {
             put("cast-str-int", new BytecodeInstruction(int2Byte(0x21), 0));
             put("get-field-dyn", new BytecodeInstruction(int2Byte(0x22), 0));
             put("set-field-dyn", new BytecodeInstruction(int2Byte(0x23), 0));
+            put("cast-int-str", new BytecodeInstruction(int2Byte(0x24), 0));
         }
     };
 

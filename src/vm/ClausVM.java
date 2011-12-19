@@ -230,6 +230,8 @@ public class ClausVM {
 
 
     public void callMethod(Pointer obj, String selector) {
+        debug("CALLING METHOD '" + selector + "' ON " + obj.address);
+
         Pointer objectClass = obj.$().clazz();
         Method method = lookupMethod(objectClass, selector);
 
@@ -361,7 +363,7 @@ public class ClausVM {
                 int handle = bytes2int(mm.popPointer().$b().bytes());
                 BufferedWriter bw = outputHandles.get(handle);
                 try {
-                    bw.write(str);
+                    bw.write(str + "\n");
                     bw.flush();
                 } catch (IOException e) {
                     throw new RuntimeException("IO error while writing file.");

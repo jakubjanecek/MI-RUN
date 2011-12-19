@@ -66,7 +66,7 @@ public class Util {
     }
 
     public static void debug(String debugMsg) {
-        boolean debug = false;
+        boolean debug = true;
         if (debug) {
             System.out.println(debugMsg);
         }

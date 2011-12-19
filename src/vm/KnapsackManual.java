@@ -13,7 +13,7 @@ public class KnapsackManual {
     private Pointer knapsackClass;
 
     public static void main(String[] args) {
-        int memSize = 128 * 24;
+        int memSize = 128 * 26;
         MM mm = new MM(memSize, memSize, memSize);
         ClausVM vm = new ClausVM(mm);
 
@@ -35,14 +35,25 @@ public class KnapsackManual {
 
     private CodePointer entryPoint() {
         String[] entryPoint = new String[]{
+                // var k = new Knapsack
                 "new " + knapsackClass.address,
                 "push-local 0",
 
+                // k.load()
                 "pop-local 0",
                 "call " + mm.addConstant("load"),
 
+                // k.init()
                 "pop-local 0",
                 "call " + mm.addConstant("init"),
+
+                // k.sum()
+                "pop-local 0",
+                "call " + mm.addConstant("sum"),
+
+                // k.save()
+                "pop-local 0",
+                "call " + mm.addConstant("save"),
 
                 "return"
         };
@@ -51,7 +62,17 @@ public class KnapsackManual {
     }
 
     private void defineKnapsackClass() {
-        knapsackClass = vm.newClazz("Knapsack", 6);
+        knapsackClass = vm.newClazz("Knapsack", 7);
+
+        // FIELDS
+        // 0 filename
+        // 1 n
+        // 2 M
+        // 3 weights
+        // 4 prices
+        // 5 line
+        // 6 sum
+
 
         String[] init = new String[]{
                 // println("Knapsack input:")
@@ -221,31 +242,124 @@ public class KnapsackManual {
         };
 
         String[] load = new String[]{
+                // this.filename = "input.dat"    (field 0)
                 "pop-arg 0",
                 "push-int 0",
                 "new-str " + mm.addConstant("input.dat"),
                 "set-field",
 
+                // var file = new TextFileReader
                 "pop-arg 0",
                 "push-int 0",
                 "get-field",
-                "syscall " + Syscalls.calls2ints.get("open-file-r"),
+                "new " + vm.getClazz("TextFileReader").address,
                 "push-local 0",
 
+                // file.open(this.filename)
+                "pop-local 0",
+                "call " + mm.addConstant("open"),
+
+                // this.line = file.readLine()    (field 5)
+                "pop-local 0",
+                "call " + mm.addConstant("readLine"),
+                "push-local 1",
                 "pop-arg 0",
                 "push-int 5",
-                "pop-local 0",
-                "syscall " + Syscalls.calls2ints.get("read-line"),
+                "pop-local 1",
                 "set-field",
 
                 "pop-local 0",
-                "syscall " + Syscalls.calls2ints.get("close-file-r"),
+                "call " + mm.addConstant("close"),
+
+                "return"
+        };
+
+        String[] save = new String[]{
+                // var file = new TextFileWriter
+                "new " + vm.getClazz("TextFileWriter").address,
+                "push-local 0",
+
+                // file.open(filename)
+                "new-str " + mm.addConstant("output.dat"),
+                "pop-local 0",
+                "call " + mm.addConstant("open"),
+
+                // file.writeLine
+                "new-str " + mm.addConstant("SUM:"),
+                "pop-local 0",
+                "call " + mm.addConstant("writeLine"),
+
+                // write sum
+                "pop-arg 0",
+                "push-int 6",
+                "get-field",
+                "cast-int-str",
+                "pop-local 0",
+                "call " + mm.addConstant("writeLine"),
+
+                "pop-local 0",
+                "call " + mm.addConstant("close"),
+
+                "return"
+        };
+
+        String[] sum = new String[]{
+                "pop-arg 0",
+                "push-int 6",
+                "new-int 0",
+                "set-field",
+
+//                // i = 0
+//                "new-int 0",
+//                "push-local 0",
+//
+//                // j = 4
+//                "new-int 3",
+//                "push-local 2",
+//
+//                "pop-local 0",
+//                "pop-local 2",
+//                "jmp-ge-int " + (25 * MM.INSTR_SIZE + 20 * MM.WORD_SIZE),
+//
+//                "pop-local 0",
+//                "syscall " + Syscalls.calls2ints.get("print-int"),
+//
+//                "pop-arg 0",
+//                "push-int 6",
+//                "get-field",
+//
+//                "pop-arg 0",
+//                "push-int 4",
+//                "get-field",
+//                "pop-local 0",
+//                "get-field-dyn",
+//                "call " + mm.addConstant("add"),
+//                "push-local 1",
+//                "pop-arg 0",
+//                "push-int 6",
+//                "pop-local 1",
+//                "set-field",
+//
+//                "pop-arg 0",
+//                "push-int 6",
+//                "get-field",
+//                "syscall " + Syscalls.calls2ints.get("print-int"),
+//
+//                "pop-local 0",
+//                "new-int 1",
+//                "call " + mm.addConstant("add"),
+//                "push-local 0",
+//
+//                "jmp -" + (27 * MM.INSTR_SIZE + 22 * MM.WORD_SIZE),
+//
                 "return"
         };
 
         Pointer dictionary = vm.newMethodDictionary(Arrays.asList(new Integer[]{
                 vm.newMethod("init", mm.storeCode(Util.translateBytecode(init)), 4),
-                vm.newMethod("load", mm.storeCode(Util.translateBytecode(load)), 1)
+                vm.newMethod("load", mm.storeCode(Util.translateBytecode(load)), 2),
+                vm.newMethod("save", mm.storeCode(Util.translateBytecode(save)), 1),
+                vm.newMethod("sum", mm.storeCode(Util.translateBytecode(sum)), 3)
         }));
 
         knapsackClass.$c().methods(dictionary);
