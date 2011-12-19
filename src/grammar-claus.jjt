@@ -271,13 +271,13 @@ CodePointer Block():
 {
   (Statement())*
   {
-    // TODO - Remove.
+    /*// TODO - Remove.
     codeLines.add("new-int 10");
     codeLines.add("new-int 20");
     codeLines.add("call " + mem.addConstant("add"));
     codeLines.add("syscall " + vm.Syscalls.calls2ints.get("print-int"));
     codeLines.add("return");
-    
+    */
     String[] codeArray = new String[codeLines.size()];
     return mem.storeCode(vm.Util.translateBytecode(codeLines.toArray(codeArray)));
   }
@@ -517,7 +517,7 @@ void IntegerValue():
       } else { // deklarace fieldu
         codeLines.add("new-int " + t.image);
         codeLines.add("push-int " + fields);
-        codeLines.add("push-int " + t.image);
+        codeLines.add("new-int " + t.image);
         codeLines.add("set-field");
         codeLines.add("return");
       }
