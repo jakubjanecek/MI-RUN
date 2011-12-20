@@ -1,0 +1,709 @@
+/*---------------------------------------------------------------------------*
+ * Options                                                                   *
+ *---------------------------------------------------------------------------*/
+
+ options {
+  DEBUG_PARSER = true;
+  STATIC = false;
+  MULTI = true;
+}
+
+/*---------------------------------------------------------------------------*
+ * Parser                                                                    *
+ *---------------------------------------------------------------------------*/
+
+PARSER_BEGIN(Claus)
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Stack;
+import vm.mm.*;
+
+class Claus {
+  public static MM mem;
+  public static vm.ClausVM vim;
+  public String className;
+  public Pointer inputClass;
+  public boolean inMethod = false;
+  public boolean inDeclaration = false;
+  public boolean inExpression = false;
+  public boolean isAssignment = false;
+  public boolean inFactor = false;
+  public int fields = 0;
+  public int localVars = 0;
+  public ArrayList<Integer> methodList = new ArrayList<Integer>();
+  public ArrayList<String> codeLines = new ArrayList<String>();
+  
+  public static void main(String[] args) {
+    try {
+      // VM init
+      int size = 1024;
+      mem = new MM(size, size, size);
+      vim = new vm.ClausVM(mem);
+      
+      // Input parsing
+      Claus parser = new Claus(System.in);
+      parser.Class();
+      System.out.println("\nParsing result: OK.");
+    } catch (ParseException pe) {
+      System.err.println("\nParse exception occured.");
+    } catch (TokenMgrError tme) {
+      System.err.println("\nToken exception occured.");
+    } catch (Exception e) {
+      System.err.println("\nException occured: " + e.getMessage());
+    }
+  }
+}
+
+PARSER_END(Claus)
+
+/*---------------------------------------------------------------------------*
+ * Grammar                                                                   *
+ *---------------------------------------------------------------------------*/
+
+/* Whitespaces */
+SKIP: {
+    " "
+  | "\t"
+  | "\n"
+  | "\r"
+}
+
+/* Comments */
+MORE:
+{
+    "//": IN_SINGLE_LINE_COMMENT
+  | <"/**" ~["/"]> { input_stream.backup(1); }: IN_FORMAL_COMMENT
+  | "/*": IN_MULTI_LINE_COMMENT
+}
+
+<IN_SINGLE_LINE_COMMENT>
+SPECIAL_TOKEN:
+{
+  <SINGLE_LINE_COMMENT: "\n" | "\r" | "\r\n" >: DEFAULT
+}
+
+<IN_FORMAL_COMMENT>
+SPECIAL_TOKEN:
+{
+  <FORMAL_COMMENT: "*/" >: DEFAULT
+}
+
+<IN_MULTI_LINE_COMMENT>
+SPECIAL_TOKEN:
+{
+  <MULTI_LINE_COMMENT: "*/" >: DEFAULT
+}
+
+<IN_SINGLE_LINE_COMMENT,IN_FORMAL_COMMENT,IN_MULTI_LINE_COMMENT>
+MORE:
+{
+  < ~[] >
+}
+
+/* Tokens */
+TOKEN: {
+    <CLASS_KW: "class">
+  | <ENTRYPOINT_KW: "entry-point">
+  | <DEF_KW: "def">
+  | <VAR_KW: "var">
+  | <RETURN_KW: "return">
+  | <RETURN_VALUE_KW: "retval">
+  | <NEW_KW: "new">
+  | <FOR_KW: "for">
+  | <FOR_ARROW_KW: "<-">
+  | <WHILE_KW: "while">
+  | <IF_KW: "if">
+  | <ELSE_KW: "else">
+  | <TRUE_KW: "true">
+  | <FALSE_KW: "false">
+  | <LBRACE: "{">
+  | <RBRACE: "}">
+  | <LPAREN: "(">
+  | <RPAREN: ")">
+  | <LBRACKET: "[">
+  | <RBRACKET: "]">
+  | <COLON: ":">
+  | <SEMI: ";">
+  | <COMMA: ",">
+  | <PERIOD: ".">
+  | <DECLARATION_EQUALS: "=">
+  | <PLUS: "+">
+  | <MINUS: "-">
+  | <MULTIPLICATION: "*">
+  | <DIVISION: "/">
+  | <MODULO: "%">
+  | <POWER: "^">
+  | <EQUALS: "==">
+  | <NOT_EQUALS: "!=">
+  | <LT: "<">
+  | <GT: ">">
+  | <ID: ["a"-"z","A"-"Z"](["a"-"z","A"-"Z","0"-"9"])*>
+  | <STRING: "\""(~["\""])*"\"">
+  | <INTEGER: (["0"-"9"])+>
+}
+
+/*---------------------------------------------------------------------------*
+ * AST nodes                                                                 *
+ *---------------------------------------------------------------------------*/
+
+//* Class */
+void Class():
+{
+  System.out.println("[Call class]");
+  Token t;
+}
+{
+  <CLASS_KW> t=<ID>
+  {
+    className = t.image;
+  } <LBRACE> ClassBody() <RBRACE>
+  <EOF>
+  {
+    System.out.println("\n[CODE]:");
+    for (int x = 0; x < codeLines.size(); x++) {
+      System.out.println(codeLines.get(x));
+    }
+    System.out.println("");
+    System.out.println("[Return class]");
+    //jjtThis.value = className;
+    //return jjtThis;
+  }
+}
+
+//* Class body */
+void ClassBody():
+{}
+{
+  (Declaration())*
+  {
+    System.out.println("[INFO]\tNumber of fields: " + fields);
+  }
+}
+
+//* Declaration */
+void Declaration():
+{
+  //System.out.println("[DECLARATION]");
+}
+{
+    VariableDeclaration()
+  | MethodDeclaration()
+  | EntryPoint()
+}
+
+//* Entry-point */
+void EntryPoint():
+{
+  CodePointer cp;
+}
+{
+  <ENTRYPOINT_KW> <LBRACE> cp=MethodBody() <RBRACE>
+  {
+    inputClass = vim.newClazz(className, fields);
+    
+    // add code
+    codeLines.add("new " + inputClass.address);
+    codeLines.add("push-local 0");
+    
+    inputClass.$c().methods(vim.newMethodDictionary(methodList));
+    System.out.println("[INFO]\tNumber of methods: " + methodList.size());
+    
+    vim.run(cp, localVars); // TODO - Check second param value
+  }
+}
+
+/* Method declaration */
+void MethodDeclaration():
+{
+  Token t;
+  CodePointer cp;
+  localVars = 0;
+}
+{
+  <DEF_KW> t=<ID> <LPAREN> MethodArgumentDeclarationList() <RPAREN> TypeSpecifier() <DECLARATION_EQUALS> <LBRACE>
+    cp=MethodBody()
+  <RBRACE>
+  {
+    System.out.println("[INFO]\tNumber of local variables: " + localVars);
+    methodList.add(vim.newMethod(t.image, cp, localVars)); // localVars=1?
+  }
+}
+
+/* Method argument declaration list */
+void MethodArgumentDeclarationList():
+{}
+{
+   [MethodArgumentDeclaration() MethodArgumentDeclarationListExt()]
+}
+
+/* Method argument declaration list extension */
+void MethodArgumentDeclarationListExt():
+{}
+{
+  [<COMMA> MethodArgumentDeclarationList()]
+}
+
+/* Method argument declaration */
+void MethodArgumentDeclaration():
+{}
+{
+  <ID> TypeSpecifier()
+}
+
+/* Method body */
+CodePointer MethodBody():
+{
+  inMethod = true;
+  //HashMap map = new HashMap();
+  CodePointer cp;
+}
+{
+  cp=Block()
+  {
+    //System.out.println("[METHOD BODY] END.");
+    inMethod = false;
+    return cp;
+  }
+}
+
+/* Block */
+CodePointer Block():
+{
+  //codeLines.clear();
+}
+{
+  (Statement())*
+  {
+    // TODO - Remove.
+    codeLines.clear();
+    codeLines.add("new-int 10");
+    codeLines.add("new-int 20");
+    codeLines.add("call " + mem.addConstant("add"));
+    codeLines.add("syscall " + vm.Syscalls.calls2ints.get("print-int"));
+    codeLines.add("return");
+    
+    String[] codeArray = new String[codeLines.size()];
+    return mem.storeCode(vm.Util.translateBytecode(codeLines.toArray(codeArray)));
+  }
+}
+
+/* Variable declaration */
+void VariableDeclaration():
+{
+  inDeclaration = true;
+  Token varName;
+}
+{
+  <VAR_KW> varName=<ID> [TypeSpecifier()] <DECLARATION_EQUALS> Expression()
+  {
+    System.out.println("VARIABLE DECLARATION: " + varName.image + "=<EXPRESSION>");
+    if (inMethod) {
+      localVars++;
+    } else {
+      fields++;
+    }
+    inDeclaration = false;
+  }
+}
+
+/* Type specifier */
+void TypeSpecifier():
+{}
+{
+  <COLON> <ID> [<LBRACKET> <RBRACKET>]
+}
+
+/* Statement */
+void Statement():
+{}
+{
+    LOOKAHEAD(2)
+    MethodCall()
+  | VariableDeclaration()
+  | Assignment()
+  | ReturnStatement()
+  | ReturnValueStatement()
+  | If()
+  | While()
+  | For()
+  {
+    System.out.println("<STATEMENT>");
+  }
+}
+
+/* Expression */
+void Expression():
+{
+  inExpression = true;
+}
+{
+    LOOKAHEAD(2)
+    MathExpression()
+  | Instantiation()
+  | SimpleValue()
+  {
+    System.out.println("<EXPRESSION>");
+    inExpression = false;
+  }
+}
+
+/* Method call */
+void MethodCall():
+{
+  Token t;
+}
+{
+    LOOKAHEAD(2)
+    <ID> <PERIOD> t=<ID> <LPAREN> [MethodArgumentList()] <RPAREN>
+  | t=<ID> <LPAREN> [MethodArgumentList()] <RPAREN>
+  {
+    String mName = t.image;
+    //System.out.println("METHOD CALL: " + mName);
+    
+    // add code
+    codeLines.add("pop-local " + localVars);
+    codeLines.add("call " + mem.addConstant(mName));
+    codeLines.add("return");
+  }
+}
+
+/* Mathod argument list */
+void MethodArgumentList():
+{}
+{
+  Expression() MethodArgumentListExtension()
+  {
+  }
+}
+
+/* Mathod argument list extension */
+void MethodArgumentListExtension():
+{}
+{
+  (<COMMA> Expression())*
+  {
+  }
+}
+
+/* Instantiation */
+void Instantiation():
+{
+  //Token t;
+}
+{
+  <NEW_KW> <ID> ArrayIndexing()
+  {
+    System.out.println("<INSTANTIATION>");
+  }
+}
+
+/* Assignment */
+void Assignment():
+{
+  isAssignment = true;
+  Token t;
+}
+{
+  t=<ID> ArrayIndexing() <DECLARATION_EQUALS> Expression()
+  {
+    System.out.println("ASSIGNMENT: " + t.image);
+    isAssignment = false;
+  }
+}
+
+/* Return statement */
+void ReturnStatement():
+{}
+{
+  <RETURN_KW>
+  {
+    System.out.println("RETURN");
+  }
+}
+
+/* Return-value statement */
+void ReturnValueStatement():
+{}
+{
+  <RETURN_VALUE_KW> Expression()
+  {
+    System.out.println("RETURN-VALUE");
+  }
+}
+
+/* If condition */
+void If():
+{
+  CodePointer cp;
+}
+{
+  <IF_KW> <LPAREN> Condition() <RPAREN> <LBRACE> cp=Block() <RBRACE>
+  [<ELSE_KW> <LBRACE> cp=Block() <RBRACE>]
+  {
+  }
+}
+
+/* While loop */
+void While():
+{
+  CodePointer cp;
+}
+{
+  <WHILE_KW> <LPAREN> Condition() <RPAREN> <LBRACE> cp=Block() <RBRACE>
+  {
+  }
+}
+
+/* For loop */
+void For():
+{
+  CodePointer cp;
+}
+{
+  <FOR_KW> <LPAREN> ForDeclaration() <RPAREN> <LBRACE> cp=Block() <RBRACE>
+}
+
+/* For loop declaration */
+void ForDeclaration():
+{
+  Token t;
+  //String s1;
+  //String s2;
+}
+{
+  t=<ID> <FOR_ARROW_KW> Expression() <PERIOD> <PERIOD> Expression()
+  {
+    System.out.println("FOR-LOOP: " + t.image);
+  }
+}
+
+/* Contition */
+void Condition():
+{
+  Token t;
+  //String s1;
+  //String s2;
+}
+{
+  Expression() (t=<EQUALS> | t=<NOT_EQUALS> | t=<LT> | t=<GT>) Expression()
+  {
+    System.out.println("CONDITION: TYPE " + t.image);
+  }
+}
+
+/* Simple value */
+void SimpleValue():
+{}
+{
+    LOOKAHEAD(2)
+    MethodCall()
+  | Indexer()
+  | IntegerValue()
+  | TrueValue()
+  | FalseValue()
+  | StringValue()
+  {
+    System.out.println ("<SIMPLE VALUE>");
+  }
+}
+
+/* Integer value */
+void IntegerValue():
+{
+  Token t;
+}
+{
+  t=<INTEGER>
+  {
+    if (inFactor) {
+      codeLines.add("new-int " + t.image);
+      return;
+    }
+    if (inDeclaration) {
+      if (inMethod) {
+        codeLines.add("new-int " + t.image);
+        codeLines.add("push-local " + localVars);
+        codeLines.add("return");
+      } else {
+        codeLines.add("new-int " + t.image);
+        codeLines.add("push-int " + fields);
+        codeLines.add("new-int " + t.image);
+        codeLines.add("set-field");
+        codeLines.add("return");
+      }
+    }
+  }
+}
+
+/* True value */
+void TrueValue():
+{
+  Token t;
+}
+{
+  t=<TRUE_KW>
+  {
+    //System.out.println("TRUE: " + t.image);
+    if (inDeclaration) {
+      if (inMethod) {
+        codeLines.add("new-int 1");
+        codeLines.add("push-local " + localVars);
+        codeLines.add("return");
+      } else {
+        codeLines.add("new-int " + t.image);
+        codeLines.add("push-int " + fields);
+        codeLines.add("new-int 1");
+        codeLines.add("set-field");
+        codeLines.add("return");
+      }
+    }
+  }
+}
+
+/* False value */
+void FalseValue():
+{
+  Token t;
+}
+{
+  t=<FALSE_KW>
+  {
+    //System.out.println("INTEGER: " + t.image);
+    if (inDeclaration) {
+      if (inMethod) {
+        codeLines.add("new-int 0");
+        codeLines.add("push-local " + localVars);
+        codeLines.add("return");
+      } else {
+        codeLines.add("new-int " + t.image);
+        codeLines.add("push-int " + fields);
+        codeLines.add("new-int 0");
+        codeLines.add("set-field");
+        codeLines.add("return");
+      }
+    }
+  }
+}
+
+/* String value */
+void StringValue():
+{
+  Token t;
+}
+{
+  t=<STRING>
+  {
+    //System.out.println("STRING: " + t.image);
+    if (inDeclaration) {
+      if (inMethod) {
+        codeLines.add("new-str " + t.image);
+        codeLines.add("push-local " + localVars);
+        codeLines.add("return");
+      } else {
+        codeLines.add("new-str " + t.image);
+        codeLines.add("push-str " + fields);
+        codeLines.add("new-str " + t.image);
+        codeLines.add("set-field");
+        codeLines.add("return");
+      }
+    }
+  }
+}
+
+/* Array */
+void Indexer():
+{
+  //Token t;
+}
+{
+  <ID> ArrayIndexing()
+  {
+    //return t;
+  }
+}
+
+/* Array indexing */
+void ArrayIndexing():
+{
+  //Token t;
+}
+{
+  [<LBRACKET> Expression() <RBRACKET>]
+  {
+    System.out.println("[<EXPRESSION>]");
+  }
+}
+
+/* Math expression */
+void MathExpression():
+{
+  Stack<String> x = new Stack<String>();
+}
+{
+  <LPAREN> Term(x) MathExpressionExt(x) <RPAREN>
+  {
+    x.push(" > MATH_EXPRESSION()");
+    while (!x.empty()) {
+      System.out.println((String)x.pop());
+    }
+  }
+}
+
+/* Math expression extension */
+void MathExpressionExt(Stack<String> x):
+{
+  String op = null;
+}
+{
+  [(<PLUS>{ op="add"; } | <MINUS>{ op="subtract"; }) Term(x) MathExpressionExt(x)]
+  {
+    if (op != null) {
+      System.out.println("[MATH_EXPRESSION_EXT] call " + mem.addConstant(op));
+      codeLines.add("call " + mem.addConstant(op));
+    }
+    x.push(" > MATH_EXPRESSION_EXT()");
+  }
+}
+
+/* Term */
+void Term(Stack<String> x):
+{}
+{
+  Factor(x) TermExt(x)
+  {
+    x.push(" > TERM()");
+  }
+}
+
+/* Term extension */
+void TermExt(Stack<String> x):
+{}
+{
+  [(<MULTIPLICATION> | <DIVISION> | <MODULO> | <POWER>) Factor(x) TermExt(x)]
+  {
+    x.push(" > TERM_EXT()");
+  }
+}
+
+/* Factor */
+void Factor(Stack<String> x):
+{
+  inFactor = true;
+  Token t;
+}
+{
+  IntegerValue() | t=<ID>{
+    // t.image ~ nazev promenne!
+    // -> z toho udelat lookup v hash-tabulce <index, nazev>
+    // -> do promenne se pak priradi hodnota
+    System.out.println("[FACTOR] new-int " + t.image);
+    codeLines.add("new-int " + t.image);
+    return;
+  } | MathExpression()
+  {
+    inFactor = false;
+    x.push(" > FACTOR()");
+  }
+}
