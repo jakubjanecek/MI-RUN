@@ -3,7 +3,7 @@
  *---------------------------------------------------------------------------*/
 
  options {
-  //DEBUG_PARSER = true;
+  DEBUG_PARSER = true;
   STATIC = false;
   MULTI = true;
 }
@@ -16,6 +16,8 @@ PARSER_BEGIN(Claus)
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Stack;
 import vm.mm.*;
 
 class Claus {
@@ -25,7 +27,9 @@ class Claus {
   public Pointer inputClass;
   public boolean inMethod = false;
   public boolean inDeclaration = false;
+  public boolean inExpression = false;
   public boolean isAssignment = false;
+  public boolean inFactor = false;
   public int fields = 0;
   public int localVars = 0;
   public ArrayList<Integer> methodList = new ArrayList<Integer>();
@@ -252,6 +256,7 @@ void MethodArgumentDeclaration():
 CodePointer MethodBody():
 {
   inMethod = true;
+  //HashMap map = new HashMap();
   CodePointer cp;
 }
 {
@@ -266,18 +271,19 @@ CodePointer MethodBody():
 /* Block */
 CodePointer Block():
 {
-  //codeLines = new ArrayList<String>();
+  //codeLines.clear();
 }
 {
   (Statement())*
   {
-    /*// TODO - Remove.
+    // TODO - Remove.
+    codeLines.clear();
     codeLines.add("new-int 10");
     codeLines.add("new-int 20");
     codeLines.add("call " + mem.addConstant("add"));
     codeLines.add("syscall " + vm.Syscalls.calls2ints.get("print-int"));
     codeLines.add("return");
-    */
+    
     String[] codeArray = new String[codeLines.size()];
     return mem.storeCode(vm.Util.translateBytecode(codeLines.toArray(codeArray)));
   }
@@ -329,7 +335,9 @@ void Statement():
 
 /* Expression */
 void Expression():
-{}
+{
+  inExpression = true;
+}
 {
     LOOKAHEAD(2)
     MathExpression()
@@ -337,6 +345,7 @@ void Expression():
   | SimpleValue()
   {
     System.out.println("<EXPRESSION>");
+    inExpression = false;
   }
 }
 
@@ -508,7 +517,10 @@ void IntegerValue():
 {
   t=<INTEGER>
   {
-    //System.out.println("INTEGER: " + t.image);
+    if (inFactor) {
+      codeLines.add("new-int " + t.image);
+      return;
+    }
     if (inDeclaration) {
       if (inMethod) {
         codeLines.add("new-int " + t.image);
@@ -626,38 +638,72 @@ void ArrayIndexing():
 
 /* Math expression */
 void MathExpression():
-{}
 {
-  <LPAREN> Term() MathExpressionExt() <RPAREN>
+  Stack<String> x = new Stack<String>();
+}
+{
+  <LPAREN> Term(x) MathExpressionExt(x) <RPAREN>
   {
-    System.out.println("<MATH EXPRESSION>");
+    x.push(" > MATH_EXPRESSION()");
+    while (!x.empty()) {
+      System.out.println((String)x.pop());
+    }
   }
 }
 
 /* Math expression extension */
-void MathExpressionExt():
-{}
+void MathExpressionExt(Stack<String> x):
 {
-  [(<PLUS> | <MINUS>) Term() MathExpressionExt()]
+  String op = null;
+}
+{
+  [(<PLUS>{ op="add"; } | <MINUS>{ op="subtract"; }) Term(x) MathExpressionExt(x)]
+  {
+    if (op != null) {
+      System.out.println("[MATH_EXPRESSION_EXT] call " + mem.addConstant(op));
+      codeLines.add("call " + mem.addConstant(op));
+    }
+    x.push(" > MATH_EXPRESSION_EXT()");
+  }
 }
 
 /* Term */
-void Term():
+void Term(Stack<String> x):
 {}
 {
-  Factor() TermExt()
+  Factor(x) TermExt(x)
+  {
+    x.push(" > TERM()");
+  }
 }
 
 /* Term extension */
-void TermExt():
+void TermExt(Stack<String> x):
 {}
 {
-  [(<MULTIPLICATION> | <DIVISION> | <MODULO> | <POWER>) Factor() TermExt()]
+  [(<MULTIPLICATION> | <DIVISION> | <MODULO> | <POWER>) Factor(x) TermExt(x)]
+  {
+    x.push(" > TERM_EXT()");
+  }
 }
 
 /* Factor */
-void Factor():
-{}
+void Factor(Stack<String> x):
 {
-  <INTEGER> | <ID> | MathExpression()
+  inFactor = true;
+  Token t;
+}
+{
+  IntegerValue() | t=<ID>{
+    // t.image ~ nazev promenne!
+    // -> z toho udelat lookup v hash-tabulce <index, nazev>
+    // -> do promenne se pak priradi hodnota
+    System.out.println("[FACTOR] new-int " + t.image);
+    codeLines.add("new-int " + t.image);
+    return;
+  } | MathExpression()
+  {
+    inFactor = false;
+    x.push(" > FACTOR()");
+  }
 }
