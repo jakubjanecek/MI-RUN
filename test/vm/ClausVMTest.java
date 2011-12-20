@@ -251,7 +251,7 @@ public class ClausVMTest {
         bw.close();
 
         String[] entryPoint = new String[]{
-                "new " + vm.getClazz("TextFileReader").address,
+                "new " + mm.addConstant("TextFileReader"),
                 "push-local 0",
                 "push-ref " + vm.newString(str2bytes("test.txt")).address,
                 "pop-local 0",
@@ -280,7 +280,7 @@ public class ClausVMTest {
     @Test
     public void testTextFileWriter() {
         String[] entryPoint = new String[]{
-                "new " + vm.getClazz("TextFileWriter").address,
+                "new " + mm.addConstant("TextFileWriter"),
                 "push-local 0",
                 "push-ref " + vm.newString(str2bytes("test1.txt")).address,
                 "pop-local 0",
@@ -478,5 +478,10 @@ public class ClausVMTest {
         CodePointer entryPointPointer = mm.storeCode(Util.translateBytecode(entryPoint));
 
         vm.run(entryPointPointer, 1);
+    }
+
+    @Test
+    public void testMethodLookup() {
+        vm.lookupMethod(vm.newArray(5).$().clazz(), "getObjectID");
     }
 }

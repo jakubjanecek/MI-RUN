@@ -13,7 +13,7 @@ public class KnapsackManual {
     private Pointer knapsackClass;
 
     public static void main(String[] args) {
-        int memSize = 128 * 26;
+        int memSize = 128 * 32;
         MM mm = new MM(memSize, memSize, memSize);
         ClausVM vm = new ClausVM(mm);
 
@@ -36,7 +36,7 @@ public class KnapsackManual {
     private CodePointer entryPoint() {
         String[] entryPoint = new String[]{
                 // var k = new Knapsack
-                "new " + knapsackClass.address,
+                "new " + mm.addConstant("Knapsack"), //knapsackClass.address,
                 "push-local 0",
 
                 // k.load()
@@ -72,7 +72,6 @@ public class KnapsackManual {
         // 4 prices
         // 5 line
         // 6 sum
-
 
         String[] init = new String[]{
                 // println("Knapsack input:")
@@ -120,7 +119,7 @@ public class KnapsackManual {
                 // prices
                 "pop-arg 0",
                 "push-int 4",
-                "new-arr " + mm.constantIndex(4),
+                "new-arr " + mm.addConstant(4),
                 "set-field",
 
                 // int i = 2
@@ -252,7 +251,7 @@ public class KnapsackManual {
                 "pop-arg 0",
                 "push-int 0",
                 "get-field",
-                "new " + vm.getClazz("TextFileReader").address,
+                "new " + mm.addConstant("TextFileReader"), //vm.getClazz("TextFileReader").address,
                 "push-local 0",
 
                 // file.open(this.filename)
@@ -276,7 +275,7 @@ public class KnapsackManual {
 
         String[] save = new String[]{
                 // var file = new TextFileWriter
-                "new " + vm.getClazz("TextFileWriter").address,
+                "new " + mm.addConstant("TextFileWriter"), //vm.getClazz("TextFileWriter").address,
                 "push-local 0",
 
                 // file.open(filename)
@@ -309,49 +308,49 @@ public class KnapsackManual {
                 "new-int 0",
                 "set-field",
 
-//                // i = 0
-//                "new-int 0",
-//                "push-local 0",
-//
-//                // j = 4
-//                "new-int 3",
-//                "push-local 2",
-//
-//                "pop-local 0",
-//                "pop-local 2",
-//                "jmp-ge-int " + (25 * MM.INSTR_SIZE + 20 * MM.WORD_SIZE),
-//
-//                "pop-local 0",
-//                "syscall " + Syscalls.calls2ints.get("print-int"),
-//
-//                "pop-arg 0",
-//                "push-int 6",
-//                "get-field",
-//
-//                "pop-arg 0",
-//                "push-int 4",
-//                "get-field",
-//                "pop-local 0",
-//                "get-field-dyn",
-//                "call " + mm.addConstant("add"),
-//                "push-local 1",
-//                "pop-arg 0",
-//                "push-int 6",
-//                "pop-local 1",
-//                "set-field",
-//
-//                "pop-arg 0",
-//                "push-int 6",
-//                "get-field",
-//                "syscall " + Syscalls.calls2ints.get("print-int"),
-//
-//                "pop-local 0",
-//                "new-int 1",
-//                "call " + mm.addConstant("add"),
-//                "push-local 0",
-//
-//                "jmp -" + (27 * MM.INSTR_SIZE + 22 * MM.WORD_SIZE),
-//
+                // i = 0
+                "new-int 0",
+                "push-local 0",
+
+                // j = 4
+                "new-int 3",
+                "push-local 2",
+
+                "pop-local 0",
+                "pop-local 2",
+                "jmp-ge-int " + (25 * MM.INSTR_SIZE + 20 * MM.WORD_SIZE),
+
+                "pop-local 0",
+                "syscall " + Syscalls.calls2ints.get("print-int"),
+
+                "pop-arg 0",
+                "push-int 6",
+                "get-field",
+
+                "pop-arg 0",
+                "push-int 4",
+                "get-field",
+                "pop-local 0",
+                "get-field-dyn",
+                "call " + mm.addConstant("add"),
+                "push-local 1",
+                "pop-arg 0",
+                "push-int 6",
+                "pop-local 1",
+                "set-field",
+
+                "pop-arg 0",
+                "push-int 6",
+                "get-field",
+                "syscall " + Syscalls.calls2ints.get("print-int"),
+
+                "pop-local 0",
+                "new-int 1",
+                "call " + mm.addConstant("add"),
+                "push-local 0",
+
+                "jmp -" + (27 * MM.INSTR_SIZE + 22 * MM.WORD_SIZE),
+
                 "return"
         };
 

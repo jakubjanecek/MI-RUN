@@ -5,6 +5,8 @@ import java.util.List;
 
 public class Util {
 
+    public static boolean debug = false;
+
     public static String bytes2str(byte[] bytes) {
         return new String(bytes);
     }
@@ -66,7 +68,6 @@ public class Util {
     }
 
     public static void debug(String debugMsg) {
-        boolean debug = true;
         if (debug) {
             System.out.println(debugMsg);
         }

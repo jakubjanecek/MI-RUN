@@ -25,6 +25,8 @@ public class MM {
 
     public static final int FRAME_MARKER = 999;
 
+    public static final int METHOD_INDEX__MARKER = 9999;
+
     public final Pointer NULL = new Pointer(0xFFFFFFFF, this);
 
     private byte[] code;
@@ -49,6 +51,7 @@ public class MM {
 
     private List<Pointer> classes;
     private List<Pointer> methodDictionaries;
+    private Set<Pointer> protectedPointers;
 
     public MM(int codeSize, int heapSize, int stackSize) {
         code = new byte[codeSize];
@@ -58,6 +61,7 @@ public class MM {
         constantPool = new ArrayList<Object>();
         this.classes = new ArrayList<Pointer>();
         this.methodDictionaries = new ArrayList<Pointer>();
+        this.protectedPointers = new HashSet<Pointer>();
 
         space1 = new int[]{0, heapSize / 2};
         space2 = new int[]{heapSize / 2, heapSize};
@@ -66,7 +70,7 @@ public class MM {
     }
 
     public Pointer alloc(int size) {
-        // System.out.println("Trying to allocate " + size + " bytes at " + firstFreeHeapByte);
+        debug("Trying to allocate " + size + " bytes at " + firstFreeHeapByte);
         Pointer p;
         int max = firstSpace ? space1[1] : space2[1];
         if (firstFreeHeapByte + size <= max) {
@@ -82,8 +86,8 @@ public class MM {
 
             System.out.println(freeAfter - freeBefore + " bytes made free.");
 
-            // System.out.println("Before GC: " + freeBefore + " B");
-            // System.out.println("After GC: " + freeAfter + " B");
+            debug("Before GC: " + freeBefore + " B");
+            debug("After GC: " + freeAfter + " B");
 
             firstFreeHeapByte = baker;
 
@@ -97,7 +101,7 @@ public class MM {
             }
         }
 
-        // System.out.println("Allocated " + size + " bytes at " + p.address);
+        debug("Allocated " + size + " bytes at " + p.address);
         return p;
     }
 
@@ -113,14 +117,14 @@ public class MM {
 
         int objectSizeInBytes = 0;
 
-        Map<Integer, Integer> stackReplaceTable = new HashMap<Integer, Integer>();
+        Map<Integer, Integer> replaceTable = new HashMap<Integer, Integer>();
 
         for (Pointer root : rootSet) {
-            // System.out.println("Baker: copying root " + root.address + " at " + nextAllocationPointer);
+            debug("Baker: copying root " + root.address + " at " + nextAllocationPointer);
             objectSizeInBytes = copyObject(root, nextAllocationPointer);
 
-            // System.out.println("putting for replacement " + root.address);
-            stackReplaceTable.put(root.address, nextAllocationPointer);
+            debug("putting for replacement " + root.address);
+            replaceTable.put(root.address, nextAllocationPointer);
 
             // setting GC state
             root.$().gcState(GCState.COPIED);
@@ -132,11 +136,12 @@ public class MM {
 
             nextAllocationPointer += objectSizeInBytes;
 
-            // System.out.println("NEXT: " + nextAllocationPointer);
+            debug("NEXT: " + nextAllocationPointer);
         }
 
+        objectSizeInBytes = 0;
         while (scanPointer < nextAllocationPointer) {
-            // System.out.println("SCAN POINTER: " + scanPointer);
+            debug("SCAN POINTER: " + scanPointer);
 
             Pointer obj = new Pointer(scanPointer, this);
 
@@ -144,6 +149,11 @@ public class MM {
 
             if (obj.$().kind() == ObjectKind.POINTER_INDEXED) {
                 objectSize = pointerIndexedObjectSize(obj.$().size());
+
+                if (replaceTable.containsKey(obj.$().clazz().address)) {
+                    obj.$().clazz(obj.$().clazz().$().clazz());
+                    // obj.$().clazz(new Pointer(replaceTable.get(obj.$().clazz().address), this));
+                }
 
                 int size = obj.$().size();
 
@@ -153,7 +163,7 @@ public class MM {
                     if (field.address >= 0) {
                         if (field.$().gcState() == GCState.NORMAL) {
                             if (field.$unsafe().marker() == MARKER) {
-                                // System.out.println("Baker: copying field " + field.address + " at " + nextAllocationPointer);
+                                debug("Baker: copying field " + field.address + " at " + nextAllocationPointer);
                                 objectSizeInBytes = copyObject(field, nextAllocationPointer);
 
                                 obj.$p().field(i, new Pointer(nextAllocationPointer, this));
@@ -162,13 +172,15 @@ public class MM {
                                 field.$().clazz(new Pointer(nextAllocationPointer, this));
 
                                 nextAllocationPointer += objectSizeInBytes;
+
+                                debug("NEXT: " + nextAllocationPointer);
                             } else {
                                 //  it is not a normal pointer-based object
                                 // it is a method dictionary containing indexes of methods
                                 // doesn't need to be copied, already there
                             }
                         } else {
-                            // System.out.println("Baker: using FP " + field.address + " at " + field.$().clazz().address);
+                            debug("Baker: using FP " + field.address + " at " + field.$().clazz().address);
 
                             // using the forward pointer
                             obj.$p().field(i, field.$().clazz());
@@ -182,7 +194,8 @@ public class MM {
             scanPointer += objectSize;
         }
 
-        replaceOnStack(stackReplaceTable);
+        replaceOnStack(replaceTable);
+        replaceProtected(replaceTable);
 
         return nextAllocationPointer;
     }
@@ -198,7 +211,7 @@ public class MM {
                 break;
         }
 
-        // System.out.println("Copying object " + obj.address + " to " + to + " size " + objectSize);
+        debug("Copying object " + obj.address + " to " + to + " size " + objectSize);
         System.arraycopy(heap, obj.address, heap, to, objectSize);
 
         return objectSize;
@@ -213,7 +226,6 @@ public class MM {
             if (p.address >= 0) {
                 // is object
                 if (p.$unsafe().marker() == MARKER) {
-                    // System.out.println("@@@ " + p.address + " # " + gcStackPointer);
                     active.add(retrievePointer(stack, gcStackPointer));
                 } else {
                     // skipping not objects - integers such as return address and caller frame address
@@ -223,7 +235,7 @@ public class MM {
             gcStackPointer += REF_SIZE;
         }
 
-        // System.out.println("Found " + active.size() + " on stack...");
+        debug("Found " + active.size() + " on stack...");
 
         return active;
     }
@@ -232,13 +244,11 @@ public class MM {
         int gcStackPointer = 0;
         while (gcStackPointer <= stackPointer) {
             Pointer p = retrievePointer(stack, gcStackPointer);
-            // gcStackPointer != 4 ensures, that return address (second field in the very first frame)
-            // is not misdetected as object at address 0, which is a Metaclass class
             if (p.address >= 0) {
                 // is object
                 if (p.$unsafe().marker() == MARKER) {
                     if (table.containsKey(p.address)) {
-                        debug("replacing on stack at " + gcStackPointer + ": " + p.address + " => " + (int) table.get(p.address));
+                        debug("replacing on stack at " + gcStackPointer + ": " + p.address + " => " + table.get(p.address));
                         storeInt(stack, gcStackPointer, table.get(p.address));
                     }
                 } else {
@@ -247,6 +257,24 @@ public class MM {
             }
 
             gcStackPointer += WORD_SIZE;
+        }
+    }
+
+    public void protect(Pointer unprotected) {
+        protectedPointers.add(unprotected);
+    }
+
+    public void unprotect(Pointer protectedPointer) {
+        if (!(classes.contains(protectedPointer) || methodDictionaries.contains(protectedPointer))) {
+            protectedPointers.remove(protectedPointer);
+        }
+    }
+
+    public void replaceProtected(Map<Integer, Integer> table) {
+        for (Pointer p : protectedPointers) {
+            if (table.containsKey(p.address)) {
+                p.address = table.get(p.address);
+            }
         }
     }
 
@@ -267,8 +295,10 @@ public class MM {
 
         int caller = basePointer;
         basePointer = stackPointer;
+        // subtracting FRAME_MARKER so that caller address is not misdetected as Pointer during stack scan
         pushInt(caller - FRAME_MARKER);
-        pushInt(programCounter.address);
+        // making the address negative so that caller address is not misdetected as Pointer during stack scan
+        pushInt(-programCounter.address);
         for (int i = 0; i < numOfLocals; i++) {
             pushPointer(NULL);
         }
@@ -281,7 +311,7 @@ public class MM {
         int currentStackPointer = stackPointer;
 
         int caller = retrieveInt(stack, basePointer) + FRAME_MARKER;
-        int returnAddress = retrieveInt(stack, basePointer + WORD_SIZE);
+        int returnAddress = -retrieveInt(stack, basePointer + WORD_SIZE);
 
         basePointer = caller;
         stackPointer = currentBasePointer;
@@ -367,7 +397,7 @@ public class MM {
     }
 
     public Pointer local(int index) {
-        // caller + return address + local at position 
+        // caller + return address + local at position
         int address = basePointer + WORD_SIZE + WORD_SIZE + (index * WORD_SIZE);
 
         debug("STACKPOP LOCAL AT " + index + " ADDRESS " + address);
@@ -400,6 +430,7 @@ public class MM {
 
     public void addClass(Pointer root) {
         classes.add(root);
+        protectedPointers.add(root);
     }
 
     public List<Pointer> getClasses() {
@@ -408,10 +439,7 @@ public class MM {
 
     public void addMethodDictionary(Pointer root) {
         methodDictionaries.add(root);
-    }
-
-    public List<Pointer> getMethodDictionaries() {
-        return methodDictionaries;
+        protectedPointers.add(root);
     }
 
     public void setPC(CodePointer pc) {

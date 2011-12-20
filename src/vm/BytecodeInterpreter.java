@@ -30,7 +30,8 @@ public class BytecodeInterpreter {
                 // call selector-index
                 case 0x02:
                     String methodSelector = (String) mm.constant(mm.getIntFromBC());
-                    vm.callMethod(mm.popPointer(), methodSelector);
+                    Pointer receiver = mm.popPointer();
+                    vm.callMethod(receiver, methodSelector);
                     break;
                 // return
                 case 0x03:
@@ -56,9 +57,17 @@ public class BytecodeInterpreter {
                     break;
                 // new clazz-pointer
                 case 0x05:
-                    Pointer clazz = mm.getPointerFromBC();
+                    Pointer clazz = vm.getClazz((String) mm.constant(mm.getIntFromBC()));
+                    mm.protect(clazz);
                     Pointer obj = vm.newObject(clazz, clazz.$c().objectSize());
+                    mm.unprotect(clazz);
                     mm.pushPointer(obj);
+
+//                    Pointer clazz = mm.getPointerFromBC();
+//                    mm.protect(clazz);
+//                    Pointer obj = vm.newObject(clazz, clazz.$c().objectSize());
+//                    mm.unprotect(clazz);
+//                    mm.pushPointer(obj);
                     break;
                 // get-field
                 case 0x06:

@@ -65,6 +65,7 @@ public class ClausVM {
         classOfObject = newClazz("Object", 0, mm.NULL);
 
         // Now that we have Metaclass class and Object class, we can set them to the Metclass.
+//        metaclass.$().clazz(metaclass);
         metaclass.$c().metaclass(metaclass);
         metaclass.$c().superclass(classOfObject);
 
@@ -72,7 +73,7 @@ public class ClausVM {
         // It is created in two steps, first class is created, second methods are added to it (for the methods to be added,
         // we need the class so that method dictionary can be created).
         classOfArray = library.createArrayClass();
-        library.finishArrayClass(classOfArray);
+        library.finishArrayClass(getClazz("Array"));
 
         // Now that we are able to create method dictionaries we can finish the Object class and put some methods in it.
         byte[] methodBytecode = new byte[]{Bytecode.strings2bytecodes.get("return").code};
@@ -92,7 +93,7 @@ public class ClausVM {
     public Pointer newObject(Pointer clazz, int size) {
         Pointer newObject = mm.alloc(mm.pointerIndexedObjectSize(size));
 
-        debug("CREATING OBJECT AT " + newObject.address + " OF " + clazz.$c().name());
+        // debug("CREATING OBJECT AT " + newObject.address + " OF " + clazz.$c().name());
 
         if (newObject == null) {
             throw new RuntimeException("Not enough memory!");
@@ -173,12 +174,12 @@ public class ClausVM {
     }
 
     public Pointer newMethodDictionary(List<Integer> methods) {
-        Pointer methodDictionary = newObject(classOfArray, methods.size());
+        Pointer methodDictionary = newObject(getClazz("Array"), methods.size());
 
         debug("CREATING DICTIONARY AT " + methodDictionary.address);
 
         for (int i = 0; i < methods.size(); i++) {
-            methodDictionary.$p().fieldInt(i, methods.get(i));
+            methodDictionary.$p().fieldInt(i, methods.get(i) - MM.METHOD_INDEX__MARKER);
         }
 
         mm.addMethodDictionary(methodDictionary);
@@ -246,6 +247,7 @@ public class ClausVM {
 
     public Method lookupMethod(Pointer clazz, String selector) {
         Pointer current = clazz;
+//        debug("LOOKUP " + clazz.$c().name() + " OF " + selector);
         while (!current.isNull()) {
             MM.Clazz c = current.$c();
             Pointer classMethods = c.methods();
@@ -255,7 +257,7 @@ public class ClausVM {
                 int size = methodDictionary.size();
 
                 for (int i = 0; i < size; i++) {
-                    int methodIndex = methodDictionary.fieldInt(i);
+                    int methodIndex = methodDictionary.fieldInt(i) + MM.METHOD_INDEX__MARKER;
 
                     Method m = mm.method(methodIndex);
 

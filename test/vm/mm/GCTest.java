@@ -69,6 +69,10 @@ public class GCTest {
         root1.$().kind(ObjectKind.POINTER_INDEXED);
         root1.$().gcState(GCState.NORMAL);
         root1.$().size(0);
+
+        // needs to be here, because everything on stack address 0 is ignored, normally there is caller address
+        mm.pushInt(0);
+
         mm.pushPointer(root1);
 
         try {
@@ -89,6 +93,9 @@ public class GCTest {
     public void testBaker02() {
         // small heap
         MM mm = new MM(1024, 60, 1024);
+
+        // needs to be here, because everything on stack address 0 is ignored, normally there is caller address
+        mm.pushInt(0);
 
         Pointer root1 = mm.alloc(mm.pointerIndexedObjectSize(0));
         root1.$().marker(MM.MARKER);
@@ -129,6 +136,9 @@ public class GCTest {
     public void testBaker03() {
         // small heap
         MM mm = new MM(1024, 80, 1024);
+
+        // needs to be here, because everything on stack address 0 is ignored, normally there is caller address
+        mm.pushInt(0);
 
         Pointer root1 = mm.alloc(mm.pointerIndexedObjectSize(0));
         root1.$().marker(MM.MARKER);
@@ -177,6 +187,9 @@ public class GCTest {
     public void testBaker04() {
         // small heap
         MM mm = new MM(1024, 90, 1024);
+
+        // needs to be here, because everything on stack address 0 is ignored, normally there is caller address
+        mm.pushInt(0);
 
         Pointer root1 = mm.alloc(mm.pointerIndexedObjectSize(1));
         root1.$().marker(MM.MARKER);
@@ -288,6 +301,19 @@ public class GCTest {
 
         CodePointer entryPoint = mm.storeCode(Util.translateBytecode(entryPointBC));
         vm.run(entryPoint);
+    }
+
+    @Test
+    public void testGCInCycle() {
+        MM mm = new MM(1024, 2048, 1024);
+        ClausVM vm = new ClausVM(mm);
+
+        boolean first = true;
+        for (int i = 0; i < 100; i++) {
+            Pointer p = vm.newArray(100);
+            assertEquals(first ? 355 : 1379, p.address);
+            first = !first;
+        }
     }
 
 }
