@@ -16,16 +16,22 @@ PARSER_BEGIN(Claus)
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Stack;
+import vm.Util;
 import vm.mm.*;
 
 class Claus {
+  public static final boolean DEBUG = true;
   public static MM mem;
   public static vm.ClausVM vim;
   public String className;
   public Pointer inputClass;
   public boolean inMethod = false;
   public boolean inDeclaration = false;
+  public boolean inExpression = false;
   public boolean isAssignment = false;
+  public boolean inFactor = false;
   public int fields = 0;
   public int localVars = 0;
   public ArrayList<Integer> methodList = new ArrayList<Integer>();
@@ -40,14 +46,52 @@ class Claus {
       
       // Input parsing
       Claus parser = new Claus(System.in);
-      System.out.println(parser.Class());
-      System.out.println("\nParsing result: OK.");
+      parser.Class();
+      log();
+      log("Parsing result: OK.");
     } catch (ParseException pe) {
-      System.err.println("\nParse exception occured.");
+      log("\nParse exception occured.", 4);
     } catch (TokenMgrError tme) {
-      System.err.println("\nToken exception occured.");
+      log("\nToken exception occured.", 4);
     } catch (Exception e) {
-      System.err.println("\nException occured: " + e.getMessage());
+      log("\nException occured: " + e.getMessage(), 4);
+    }
+  }
+  
+  public static void log() {
+    log("", 0);
+  }
+  
+  public static void log(String msg) {
+    log(msg, 1);
+  }
+  
+  public static void log(String msg, int type) {
+    if (DEBUG) {
+      String prefix;
+      switch (type) {
+        case 1: {
+          prefix = "[INFO]\t";
+          break;
+        }
+        case 2: {
+          prefix = "[DEBUG]\t";
+          break;
+        }
+        case 3: {
+          prefix = "[CODE]\t";
+          break;
+        }
+        case 4: {
+          prefix = "[ERROR]\t";
+          break;
+        }
+        default: {
+          prefix = "";
+          break;
+        }
+      }
+      System.out.println(prefix + msg);
     }
   }
 }
@@ -69,11 +113,9 @@ SKIP: {
 /* Comments */
 MORE:
 {
-  "//": IN_SINGLE_LINE_COMMENT
-|
-  <"/**" ~["/"]> { input_stream.backup(1); }: IN_FORMAL_COMMENT
-|
-  "/*": IN_MULTI_LINE_COMMENT
+    "//": IN_SINGLE_LINE_COMMENT
+  | <"/**" ~["/"]> { input_stream.backup(1); }: IN_FORMAL_COMMENT
+  | "/*": IN_MULTI_LINE_COMMENT
 }
 
 <IN_SINGLE_LINE_COMMENT>
@@ -147,24 +189,25 @@ TOKEN: {
  *---------------------------------------------------------------------------*/
 
 //* Class */
-ASTClass Class():
+void Class():
 {
+  log();
+  log("CLASS - BEGIN");
   Token t;
 }
 {
   <CLASS_KW> t=<ID>
   {
-    className = t.image;
+    this.className = t.image;
   } <LBRACE> ClassBody() <RBRACE>
   <EOF>
   {
-    System.out.println("\n[CODE]:");
+    /**/log();
     for (int x = 0; x < codeLines.size(); x++) {
-      System.out.println(codeLines.get(x));
-    }
-    System.out.println("");
-    jjtThis.value = className;
-    return jjtThis;
+      log(codeLines.get(x), 3);
+    }/**/
+    log();
+    log("CLASS - END");
   }
 }
 
@@ -174,7 +217,7 @@ void ClassBody():
 {
   (Declaration())*
   {
-    System.out.println("[INFO]\tNumber of fields: " + fields);
+    log("Number of fields: " + fields, 2);
   }
 }
 
@@ -192,6 +235,7 @@ void Declaration():
 //* Entry-point */
 void EntryPoint():
 {
+  log("ENTRY-POINT BEGIN");
   CodePointer cp;
 }
 {
@@ -204,9 +248,10 @@ void EntryPoint():
     codeLines.add("push-local 0");
     
     inputClass.$c().methods(vim.newMethodDictionary(methodList));
-    System.out.println("[INFO]\tNumber of methods: " + methodList.size());
+    log("Number of methods: " + methodList.size(), 2);
     
     vim.run(cp, localVars); // TODO - Check second param value
+    log("ENTRY-POINT END");
   }
 }
 
@@ -222,7 +267,7 @@ void MethodDeclaration():
     cp=MethodBody()
   <RBRACE>
   {
-    System.out.println("[INFO]\tNumber of local variables: " + localVars);
+    log("Number of local variables: " + localVars, 2);
     methodList.add(vim.newMethod(t.image, cp, localVars)); // localVars=1?
   }
 }
@@ -252,6 +297,7 @@ void MethodArgumentDeclaration():
 CodePointer MethodBody():
 {
   inMethod = true;
+  //HashMap map = new HashMap();
   CodePointer cp;
 }
 {
@@ -266,20 +312,21 @@ CodePointer MethodBody():
 /* Block */
 CodePointer Block():
 {
-  //codeLines = new ArrayList<String>();
+  //codeLines.clear();
 }
 {
   (Statement())*
   {
-    /*// TODO - Remove.
+    // TODO - Remove.
+    codeLines.clear();
     codeLines.add("new-int 10");
     codeLines.add("new-int 20");
     codeLines.add("call " + mem.addConstant("add"));
     codeLines.add("syscall " + vm.Syscalls.calls2ints.get("print-int"));
     codeLines.add("return");
-    */
+    
     String[] codeArray = new String[codeLines.size()];
-    return mem.storeCode(vm.Util.translateBytecode(codeLines.toArray(codeArray)));
+    return mem.storeCode(Util.translateBytecode(codeLines.toArray(codeArray)));
   }
 }
 
@@ -292,7 +339,7 @@ void VariableDeclaration():
 {
   <VAR_KW> varName=<ID> [TypeSpecifier()] <DECLARATION_EQUALS> Expression()
   {
-    System.out.println("VARIABLE DECLARATION: " + varName.image + "=<EXPRESSION>");
+    log("VARIABLE DECLARATION: " + varName.image + "=<EXPRESSION>", 2);
     if (inMethod) {
       localVars++;
     } else {
@@ -323,20 +370,23 @@ void Statement():
   | While()
   | For()
   {
-    System.out.println("<STATEMENT>");
+    log("<STATEMENT>", 2);
   }
 }
 
 /* Expression */
 void Expression():
-{}
+{
+  inExpression = true;
+}
 {
     LOOKAHEAD(2)
     MathExpression()
   | Instantiation()
   | SimpleValue()
   {
-    System.out.println("<EXPRESSION>");
+    log("<EXPRESSION>", 2);
+    inExpression = false;
   }
 }
 
@@ -386,7 +436,7 @@ void Instantiation():
 {
   <NEW_KW> <ID> ArrayIndexing()
   {
-    System.out.println("<INSTANTIATION>");
+    log("<INSTANTIATION>", 2);
   }
 }
 
@@ -399,7 +449,7 @@ void Assignment():
 {
   t=<ID> ArrayIndexing() <DECLARATION_EQUALS> Expression()
   {
-    System.out.println("ASSIGNMENT: " + t.image);
+    log("ASSIGNMENT: " + t.image, 2);
     isAssignment = false;
   }
 }
@@ -410,7 +460,7 @@ void ReturnStatement():
 {
   <RETURN_KW>
   {
-    System.out.println("RETURN");
+    log("RETURN", 2);
   }
 }
 
@@ -420,7 +470,7 @@ void ReturnValueStatement():
 {
   <RETURN_VALUE_KW> Expression()
   {
-    System.out.println("RETURN-VALUE");
+    log("RETURN-VALUE", 2);
   }
 }
 
@@ -466,7 +516,7 @@ void ForDeclaration():
 {
   t=<ID> <FOR_ARROW_KW> Expression() <PERIOD> <PERIOD> Expression()
   {
-    System.out.println("FOR-LOOP: " + t.image);
+    log("FOR-LOOP: " + t.image, 2);
   }
 }
 
@@ -480,7 +530,7 @@ void Condition():
 {
   Expression() (t=<EQUALS> | t=<NOT_EQUALS> | t=<LT> | t=<GT>) Expression()
   {
-    System.out.println("CONDITION: TYPE " + t.image);
+    log("CONDITION: TYPE " + t.image, 2);
   }
 }
 
@@ -496,7 +546,7 @@ void SimpleValue():
   | FalseValue()
   | StringValue()
   {
-    System.out.println ("<SIMPLE VALUE>");
+    log("<SIMPLE VALUE>", 2);
   }
 }
 
@@ -504,20 +554,26 @@ void SimpleValue():
 void IntegerValue():
 {
   Token t;
+  String val;
 }
 {
   t=<INTEGER>
   {
-    //System.out.println("INTEGER: " + t.image);
+    val = t.image;
+    log(val, 2);
+    if (inFactor) {
+      codeLines.add("new-int " + val);
+      return;
+    }
     if (inDeclaration) {
       if (inMethod) {
-        codeLines.add("new-int " + t.image);
+        codeLines.add("new-int " + val);
         codeLines.add("push-local " + localVars);
         codeLines.add("return");
       } else {
-        codeLines.add("new-int " + t.image);
+        codeLines.add("new-int " + val);
         codeLines.add("push-int " + fields);
-        codeLines.add("new-int " + t.image);
+        codeLines.add("new-int " + val);
         codeLines.add("set-field");
         codeLines.add("return");
       }
@@ -529,18 +585,20 @@ void IntegerValue():
 void TrueValue():
 {
   Token t;
+  String val;
 }
 {
   t=<TRUE_KW>
   {
-    //System.out.println("TRUE: " + t.image);
+    val = t.image;
+    log(val, 2);
     if (inDeclaration) {
       if (inMethod) {
         codeLines.add("new-int 1");
         codeLines.add("push-local " + localVars);
         codeLines.add("return");
       } else {
-        codeLines.add("new-int " + t.image);
+        codeLines.add("new-int " + val);
         codeLines.add("push-int " + fields);
         codeLines.add("new-int 1");
         codeLines.add("set-field");
@@ -554,18 +612,20 @@ void TrueValue():
 void FalseValue():
 {
   Token t;
+  String val;
 }
 {
   t=<FALSE_KW>
   {
-    //System.out.println("INTEGER: " + t.image);
+    val = t.image;
+    log(val, 2);
     if (inDeclaration) {
       if (inMethod) {
         codeLines.add("new-int 0");
         codeLines.add("push-local " + localVars);
         codeLines.add("return");
       } else {
-        codeLines.add("new-int " + t.image);
+        codeLines.add("new-int " + val);
         codeLines.add("push-int " + fields);
         codeLines.add("new-int 0");
         codeLines.add("set-field");
@@ -579,20 +639,22 @@ void FalseValue():
 void StringValue():
 {
   Token t;
+  String val;
 }
 {
   t=<STRING>
   {
-    //System.out.println("STRING: " + t.image);
+    val = t.image;
+    log(val, 2);
     if (inDeclaration) {
       if (inMethod) {
-        codeLines.add("new-str " + t.image);
+        codeLines.add("new-str " + val);
         codeLines.add("push-local " + localVars);
         codeLines.add("return");
       } else {
-        codeLines.add("new-str " + t.image);
+        codeLines.add("new-str " + val);
         codeLines.add("push-str " + fields);
-        codeLines.add("new-str " + t.image);
+        codeLines.add("new-str " + val);
         codeLines.add("set-field");
         codeLines.add("return");
       }
@@ -620,44 +682,78 @@ void ArrayIndexing():
 {
   [<LBRACKET> Expression() <RBRACKET>]
   {
-    System.out.println("[<EXPRESSION>]");
+    log("<ARRAY_INDEXING>", 2);
   }
 }
 
 /* Math expression */
 void MathExpression():
-{}
 {
-  <LPAREN> Term() MathExpressionExt() <RPAREN>
+  Stack<String> x = new Stack<String>();
+}
+{
+  <LPAREN> Term(x) MathExpressionExt(x) <RPAREN>
   {
-    System.out.println("<MATH EXPRESSION>");
+    x.push(" > MATH_EXPRESSION()");
+    while (!x.empty()) {
+      log((String)x.pop(), 2);
+    }
   }
 }
 
 /* Math expression extension */
-void MathExpressionExt():
-{}
+void MathExpressionExt(Stack<String> x):
 {
-  [(<PLUS> | <MINUS>) Term() MathExpressionExt()]
+  String op = null;
+}
+{
+  [(<PLUS>{ op="add"; } | <MINUS>{ op="subtract"; }) Term(x) MathExpressionExt(x)]
+  {
+    if (op != null) {
+      log("[MATH_EXPRESSION_EXT] call " + mem.addConstant(op), 2);
+      codeLines.add("call " + mem.addConstant(op));
+    }
+    x.push(" > MATH_EXPRESSION_EXT()");
+  }
 }
 
 /* Term */
-void Term():
+void Term(Stack<String> x):
 {}
 {
-  Factor() TermExt()
+  Factor(x) TermExt(x)
+  {
+    x.push(" > TERM()");
+  }
 }
 
 /* Term extension */
-void TermExt():
+void TermExt(Stack<String> x):
 {}
 {
-  [(<MULTIPLICATION> | <DIVISION> | <MODULO> | <POWER>) Factor() TermExt()]
+  [(<MULTIPLICATION> | <DIVISION> | <MODULO> | <POWER>) Factor(x) TermExt(x)]
+  {
+    x.push(" > TERM_EXT()");
+  }
 }
 
 /* Factor */
-void Factor():
-{}
+void Factor(Stack<String> x):
 {
-  <INTEGER> | <ID> | MathExpression()
+  inFactor = true;
+  Token t;
+}
+{
+  IntegerValue() | t=<ID>{
+    // t.image ~ nazev promenne!
+    // -> z toho udelat lookup v hash-tabulce <index, nazev>
+    // -> do promenne se pak priradi hodnota
+    log("[FACTOR] new-int " + t.image, 2);
+    codeLines.add("new-int " + t.image);
+    return;
+  } | MathExpression()
+  {
+    inFactor = false;
+    x.push(" > FACTOR()");
+  }
 }
