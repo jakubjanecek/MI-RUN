@@ -5,6 +5,8 @@ import java.util.List;
 
 public class Util {
 
+    public static final boolean DEBUG = true;
+    
     public static String bytes2str(byte[] bytes) {
         return new String(bytes);
     }
@@ -64,11 +66,10 @@ public class Util {
             System.out.println(l);
         }
     }
-
+    
     public static void debug(String debugMsg) {
-        boolean debug = true;
-        if (debug) {
-            System.out.println(debugMsg);
+        if (DEBUG) {
+            System.out.println("[VM]\t\t" + debugMsg);
         }
     }
 
