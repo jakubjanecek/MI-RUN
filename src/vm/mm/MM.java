@@ -23,8 +23,6 @@ public class MM {
 
     public static final byte FREE_MARKER = (byte) -1;
 
-    public static final int FRAME_MARKER = 999;
-
     public static final int METHOD_INDEX__MARKER = 9999;
 
     public final Pointer NULL = new Pointer(0xFFFFFFFF, this);
@@ -55,13 +53,19 @@ public class MM {
 
     public MM(int codeSize, int heapSize, int stackSize) {
         code = new byte[codeSize];
+        clear(code, 0, codeSize);
+
         heap = new byte[heapSize];
+        clear(heap, 0, heapSize);
+
         stack = new byte[stackSize];
+        clear(stack, 0, stackSize);
+
         methods = new ArrayList<Method>();
         constantPool = new ArrayList<Object>();
-        this.classes = new ArrayList<Pointer>();
-        this.methodDictionaries = new ArrayList<Pointer>();
-        this.protectedPointers = new HashSet<Pointer>();
+        classes = new ArrayList<Pointer>();
+        methodDictionaries = new ArrayList<Pointer>();
+        protectedPointers = new HashSet<Pointer>();
 
         space1 = new int[]{0, heapSize / 2};
         space2 = new int[]{heapSize / 2, heapSize};
@@ -295,9 +299,9 @@ public class MM {
 
         int caller = basePointer;
         basePointer = stackPointer;
-        // subtracting FRAME_MARKER so that caller address is not misdetected as Pointer during stack scan
-        pushInt(caller - FRAME_MARKER);
         // making the address negative so that caller address is not misdetected as Pointer during stack scan
+        pushInt(-caller);
+        // making the address negative so that return address is not misdetected as Pointer during stack scan
         pushInt(-programCounter.address);
         for (int i = 0; i < numOfLocals; i++) {
             pushPointer(NULL);
@@ -310,7 +314,7 @@ public class MM {
         int currentBasePointer = basePointer;
         int currentStackPointer = stackPointer;
 
-        int caller = retrieveInt(stack, basePointer) + FRAME_MARKER;
+        int caller = -retrieveInt(stack, basePointer);
         int returnAddress = -retrieveInt(stack, basePointer + WORD_SIZE);
 
         basePointer = caller;
@@ -491,7 +495,7 @@ public class MM {
     }
 
     private void clear(byte[] what, int from, int size) {
-        for (int i = from; i < from + size && from + size < what.length; i++) {
+        for (int i = from; (i < (from + size)) && ((from + size) <= what.length); i++) {
             what[i] = FREE_MARKER;
         }
     }
