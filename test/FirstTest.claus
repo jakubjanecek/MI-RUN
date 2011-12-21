@@ -8,20 +8,20 @@ class FirstTest {
     number = 5
   }
   
-  /* Alpha * /
+  /* Alpha */
   def alpha(): Nothing = {
     var num = (number + 1)
     println(num)
   }
   
-  /* Omega * /
+  /* Omega */
   def omega(): Nothing = {
     var a = (number + 3)
     var b = (number - 2)
     println((a + b))
   }
   
-  /* Run all methods * /
+  /* Run all methods */
   def run(): Nothing = {
     alpha()
     omega()
@@ -29,11 +29,11 @@ class FirstTest {
   
   /* Entry-point */
   entry-point {
-    //println("Zacatek kodu...")
+    println("Zacatek kodu...")
     var ft = new FirstTest
     ft.init()
-    ft.run()
-    //println("Konec kodu...")
+    //ft.run()
+    println("Konec kodu...")
   }
   
 }

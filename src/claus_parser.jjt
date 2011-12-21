@@ -29,12 +29,15 @@ class Claus {
   public Pointer inputClass;
   public boolean inMethod = false;
   public boolean inDeclaration = false;
+  public boolean inVarDeclaration = false;
   public boolean inExpression = false;
   public boolean isAssignment = false;
+  public boolean isReturnVal = false;
   public boolean inFactor = false;
   public int fields = 0;
   public int localVars = 0;
   public ArrayList<Integer> methodList = new ArrayList<Integer>();
+  public ArrayList<String> globalCodeLines = new ArrayList<String>();
   public ArrayList<String> codeLines = new ArrayList<String>();
   
   public static void main(String[] args) {
@@ -191,174 +194,191 @@ TOKEN: {
 //* Class */
 void Class():
 {
-  log();
-  log("CLASS - BEGIN");
+  log("CLASS: BEGIN");
   Token t;
 }
 {
   <CLASS_KW> t=<ID>
   {
-    this.className = t.image;
+    className = t.image;
   } <LBRACE> ClassBody() <RBRACE>
   <EOF>
   {
-    /**/log();
-    for (int x = 0; x < codeLines.size(); x++) {
-      log(codeLines.get(x), 3);
-    }/**/
+    // Vytvoreni tridy v pameti VM
+    inputClass = vim.newClazz(className, fields);
+    // Vytvoreni metod v teto tride
+    inputClass.$c().methods(vim.newMethodDictionary(methodList));
     log();
-    log("CLASS - END");
+    for (String line : globalCodeLines) { log(line, 3); }
+    log();
+    /** /// Ziskani pointeru na radky kodu
+    String[] codeArray = new String[globalCodeLines.size()];
+    CodePointer cp = mem.storeCode(Util.translateBytecode(globalCodeLines.toArray(codeArray)));
+    // Spusteni tridy ve VM
+    vim.run(cp, localVars);/**/
+    log("CLASS: END");
   }
 }
 
 //* Class body */
 void ClassBody():
-{}
+{
+  //log("CLASS_BODY: BEGIN");
+}
 {
   (Declaration())*
   {
-    log("Number of fields: " + fields, 2);
+    //log("CLASS_BODY: END");
   }
 }
 
 //* Declaration */
 void Declaration():
 {
-  //System.out.println("[DECLARATION]");
+  //log("DECLARATION: BEGIN");
+  inDeclaration = true;
+  codeLines.clear();
 }
 {
     VariableDeclaration()
   | MethodDeclaration()
   | EntryPoint()
+  {
+    for (String line : codeLines) {
+      globalCodeLines.add(line);
+    }
+    inDeclaration = false;
+    //log("DECLARATION: END");
+  }
 }
 
 //* Entry-point */
 void EntryPoint():
 {
-  log("ENTRY-POINT BEGIN");
-  CodePointer cp;
+  log("ENTRY_POINT: BEGIN");
+  localVars = 0;
+  // Zde uz musi byt znamy pocet fieldu i metod
+  log("Number of fields: " + fields, 2);
+  log("Number of methods: " + methodList.size(), 2);
 }
 {
-  <ENTRYPOINT_KW> <LBRACE> cp=MethodBody() <RBRACE>
+  <ENTRYPOINT_KW> <LBRACE> MethodBody() <RBRACE>
   {
-    inputClass = vim.newClazz(className, fields);
-    
-    // add code
-    codeLines.add("new " + inputClass.address);
-    codeLines.add("push-local 0");
-    
-    inputClass.$c().methods(vim.newMethodDictionary(methodList));
-    log("Number of methods: " + methodList.size(), 2);
-    
-    vim.run(cp, localVars); // TODO - Check second param value
-    log("ENTRY-POINT END");
+    log("ENTRY_POINT: END");
   }
 }
 
 /* Method declaration */
 void MethodDeclaration():
 {
-  Token t;
-  CodePointer cp;
+  log("METHOD_DECLARATION: BEGIN");
+  // zde uz musi byt znam finalni pocet fieldu
   localVars = 0;
+  Token t;
 }
 {
   <DEF_KW> t=<ID> <LPAREN> MethodArgumentDeclarationList() <RPAREN> TypeSpecifier() <DECLARATION_EQUALS> <LBRACE>
-    cp=MethodBody()
+    MethodBody()
   <RBRACE>
   {
     log("Number of local variables: " + localVars, 2);
-    methodList.add(vim.newMethod(t.image, cp, localVars)); // localVars=1?
+    String[] codeArray = new String[codeLines.size()];
+    CodePointer cp = mem.storeCode(Util.translateBytecode(codeLines.toArray(codeArray)));
+    methodList.add(vim.newMethod(t.image, cp, localVars));
+    log("METHOD_DECLARATION END");
   }
 }
 
 /* Method argument declaration list */
 void MethodArgumentDeclarationList():
-{}
+{
+}
 {
    [MethodArgumentDeclaration() MethodArgumentDeclarationListExt()]
 }
 
 /* Method argument declaration list extension */
 void MethodArgumentDeclarationListExt():
-{}
+{
+}
 {
   [<COMMA> MethodArgumentDeclarationList()]
 }
 
 /* Method argument declaration */
 void MethodArgumentDeclaration():
-{}
+{
+}
 {
   <ID> TypeSpecifier()
 }
 
-/* Method body */
-CodePointer MethodBody():
+//* Method body */
+void MethodBody():
 {
+  log("METHOD_BODY: BEGIN");
   inMethod = true;
-  //HashMap map = new HashMap();
-  CodePointer cp;
 }
 {
-  cp=Block()
+  Block()
   {
-    //System.out.println("[METHOD BODY] END.");
+    codeLines.add("return");
     inMethod = false;
-    return cp;
+    log("METHOD_BODY: END");
   }
 }
 
-/* Block */
-CodePointer Block():
+//* Block */
+void Block():
 {
-  //codeLines.clear();
+  log("BLOCK: BEGIN");
 }
 {
   (Statement())*
   {
-    // TODO - Remove.
-    codeLines.clear();
-    codeLines.add("new-int 10");
-    codeLines.add("new-int 20");
-    codeLines.add("call " + mem.addConstant("add"));
-    codeLines.add("syscall " + vm.Syscalls.calls2ints.get("print-int"));
-    codeLines.add("return");
-    
-    String[] codeArray = new String[codeLines.size()];
-    return mem.storeCode(Util.translateBytecode(codeLines.toArray(codeArray)));
+    log("BLOCK: END");
   }
 }
 
-/* Variable declaration */
+//* Variable declaration */
 void VariableDeclaration():
 {
-  inDeclaration = true;
+  log("VAR_DECLARATION: BEGIN");
+  inVarDeclaration = true;
   Token varName;
 }
 {
   <VAR_KW> varName=<ID> [TypeSpecifier()] <DECLARATION_EQUALS> Expression()
   {
-    log("VARIABLE DECLARATION: " + varName.image + "=<EXPRESSION>", 2);
     if (inMethod) {
       localVars++;
     } else {
       fields++;
     }
-    inDeclaration = false;
+    inVarDeclaration = false;
+    log("VAR_DECLARATION: END");
   }
 }
 
-/* Type specifier */
+//* Type specifier */
 void TypeSpecifier():
-{}
 {
-  <COLON> <ID> [<LBRACKET> <RBRACKET>]
+  //log("TYPE: BEGIN");
+  Token t;
+}
+{
+  <COLON> t=<ID> [<LBRACKET> <RBRACKET>]
+  {
+    log("-> type " + t.image, 2);
+    //log("TYPE: END");
+  }
 }
 
 /* Statement */
 void Statement():
-{}
+{
+  log("STATEMENT: BEGIN");
+}
 {
     LOOKAHEAD(2)
     MethodCall()
@@ -370,43 +390,88 @@ void Statement():
   | While()
   | For()
   {
-    log("<STATEMENT>", 2);
+    log("STATEMENT: END");
   }
 }
 
 /* Expression */
 void Expression():
 {
+  log("EXPRESSION: BEGIN");
   inExpression = true;
+  Token t;
 }
 {
     LOOKAHEAD(2)
     MathExpression()
   | Instantiation()
-  | SimpleValue()
+  | (
+      LOOKAHEAD(2)
+      MethodCall()
+    | Indexer()
+    | t=<INTEGER> {
+      if (inVarDeclaration) {
+        if (inMethod) {
+          codeLines.add("new-int " + t.image);
+          codeLines.add("push-local " + localVars);
+        } else {
+          codeLines.add("new-int " + t.image);
+          codeLines.add("push-int " + fields);
+          codeLines.add("new-int " + mem.addConstant(t.image));
+          codeLines.add("set-field");
+        }
+        log("var ? = " + t.image);
+      }
+      if (isReturnVal) {
+        codeLines.add("new " + mem.addConstant(t.image));
+        codeLines.add("return");
+      }
+    }
+    | t=<TRUE_KW> {
+      if (inVarDeclaration) {
+        log("var ? = " + t.image);
+      }
+    }
+    | t=<FALSE_KW> {
+      if (inVarDeclaration) {
+        log("var ? = " + t.image);
+      }
+    }
+    | t=<STRING> {
+      if (inVarDeclaration) {
+        log("var ? = " + t.image);
+      }
+    }
+  )
   {
-    log("<EXPRESSION>", 2);
     inExpression = false;
+    log("EXPRESSION: END");
   }
 }
 
 /* Method call */
 void MethodCall():
 {
+  log("METHOD_CALL: BEGIN");
   Token t;
 }
 {
     LOOKAHEAD(2)
-    <ID> <PERIOD> t=<ID> <LPAREN> [MethodArgumentList()] <RPAREN>
-  | t=<ID> <LPAREN> [MethodArgumentList()] <RPAREN>
+    <ID> <PERIOD> t=<ID>{
+      log("-> name = " + t.image, 2);
+    } <LPAREN> [MethodArgumentList()] <RPAREN>
+  | t=<ID>{
+    log("-> name = " + t.image, 2);
+  }  <LPAREN> [MethodArgumentList()] <RPAREN>
   {
-    String mName = t.image;
-    //System.out.println("METHOD CALL: " + mName);
-    
-    // add code
-    codeLines.add("pop-local " + localVars);
-    codeLines.add("call " + mem.addConstant(mName));
-    codeLines.add("return");
+    /*if (t.image == "println") {
+      codeLines.add("new-str " + mem.addConstant("TODO..."));
+      codeLines.add("syscall " + vm.Syscalls.calls2ints.get("print"));
+    } else {
+      */codeLines.add("pop-local " + localVars);
+      codeLines.add("call " + mem.addConstant(t.image));
+    //}
+    log("METHOD_CALL: BEGIN");
   }
 }
 
@@ -428,82 +493,98 @@ void MethodArgumentListExtension():
   }
 }
 
-/* Instantiation */
+//* Instantiation */
 void Instantiation():
 {
-  //Token t;
+  log("INSTANTIATION: BEGIN");
+  Token t;
 }
 {
-  <NEW_KW> <ID> ArrayIndexing()
+  <NEW_KW> t=<ID> ArrayIndexing()
   {
-    log("<INSTANTIATION>", 2);
+    if (inVarDeclaration) {
+      codeLines.add("new " + mem.addConstant(t.image));
+      codeLines.add("return");
+      log("new " + t.image, 2);
+    }
+    log("INSTANTIATION: END");
   }
 }
 
 /* Assignment */
 void Assignment():
 {
+  log("ASSIGNMENT: BEGIN");
   isAssignment = true;
   Token t;
 }
 {
   t=<ID> ArrayIndexing() <DECLARATION_EQUALS> Expression()
   {
-    log("ASSIGNMENT: " + t.image, 2);
+    log(t.image + " = <EXPRESSION>", 2);
     isAssignment = false;
+    log("ASSIGNMENT: END");
   }
 }
 
 /* Return statement */
 void ReturnStatement():
-{}
+{
+}
 {
   <RETURN_KW>
   {
-    log("RETURN", 2);
+    codeLines.add("return");
   }
 }
 
-/* Return-value statement */
+//* Return-value statement */
 void ReturnValueStatement():
-{}
+{
+  isReturnVal = true;
+}
 {
   <RETURN_VALUE_KW> Expression()
   {
-    log("RETURN-VALUE", 2);
+    isReturnVal = false;
   }
 }
 
 /* If condition */
 void If():
 {
-  CodePointer cp;
+  log("IF: BEGIN");
 }
 {
-  <IF_KW> <LPAREN> Condition() <RPAREN> <LBRACE> cp=Block() <RBRACE>
-  [<ELSE_KW> <LBRACE> cp=Block() <RBRACE>]
+  <IF_KW> <LPAREN> Condition() <RPAREN> <LBRACE> Block() <RBRACE>
+  [<ELSE_KW> <LBRACE> Block() <RBRACE>]
   {
+    log("IF: END");
   }
 }
 
 /* While loop */
 void While():
 {
-  CodePointer cp;
+  log("WHILE: BEGIN");
 }
 {
-  <WHILE_KW> <LPAREN> Condition() <RPAREN> <LBRACE> cp=Block() <RBRACE>
+  <WHILE_KW> <LPAREN> Condition() <RPAREN> <LBRACE> Block() <RBRACE>
   {
+    log("WHILE: END");
   }
 }
 
 /* For loop */
 void For():
 {
-  CodePointer cp;
+  log("FOR: BEGIN");
 }
 {
-  <FOR_KW> <LPAREN> ForDeclaration() <RPAREN> <LBRACE> cp=Block() <RBRACE>
+  <FOR_KW> <LPAREN> ForDeclaration() <RPAREN> <LBRACE> Block() <RBRACE>
+  {
+    log("FOR: END");
+  }
 }
 
 /* For loop declaration */
@@ -516,13 +597,14 @@ void ForDeclaration():
 {
   t=<ID> <FOR_ARROW_KW> Expression() <PERIOD> <PERIOD> Expression()
   {
-    log("FOR-LOOP: " + t.image, 2);
+    log(t.image, 2);
   }
 }
 
 /* Contition */
 void Condition():
 {
+  log("CONDITION: BEGIN");
   Token t;
   //String s1;
   //String s2;
@@ -531,229 +613,109 @@ void Condition():
   Expression() (t=<EQUALS> | t=<NOT_EQUALS> | t=<LT> | t=<GT>) Expression()
   {
     log("CONDITION: TYPE " + t.image, 2);
-  }
-}
-
-/* Simple value */
-void SimpleValue():
-{}
-{
-    LOOKAHEAD(2)
-    MethodCall()
-  | Indexer()
-  | IntegerValue()
-  | TrueValue()
-  | FalseValue()
-  | StringValue()
-  {
-    log("<SIMPLE VALUE>", 2);
-  }
-}
-
-/* Integer value */
-void IntegerValue():
-{
-  Token t;
-  String val;
-}
-{
-  t=<INTEGER>
-  {
-    val = t.image;
-    log(val, 2);
-    if (inFactor) {
-      codeLines.add("new-int " + val);
-      return;
-    }
-    if (inDeclaration) {
-      if (inMethod) {
-        codeLines.add("new-int " + val);
-        codeLines.add("push-local " + localVars);
-        codeLines.add("return");
-      } else {
-        codeLines.add("new-int " + val);
-        codeLines.add("push-int " + fields);
-        codeLines.add("new-int " + val);
-        codeLines.add("set-field");
-        codeLines.add("return");
-      }
-    }
-  }
-}
-
-/* True value */
-void TrueValue():
-{
-  Token t;
-  String val;
-}
-{
-  t=<TRUE_KW>
-  {
-    val = t.image;
-    log(val, 2);
-    if (inDeclaration) {
-      if (inMethod) {
-        codeLines.add("new-int 1");
-        codeLines.add("push-local " + localVars);
-        codeLines.add("return");
-      } else {
-        codeLines.add("new-int " + val);
-        codeLines.add("push-int " + fields);
-        codeLines.add("new-int 1");
-        codeLines.add("set-field");
-        codeLines.add("return");
-      }
-    }
-  }
-}
-
-/* False value */
-void FalseValue():
-{
-  Token t;
-  String val;
-}
-{
-  t=<FALSE_KW>
-  {
-    val = t.image;
-    log(val, 2);
-    if (inDeclaration) {
-      if (inMethod) {
-        codeLines.add("new-int 0");
-        codeLines.add("push-local " + localVars);
-        codeLines.add("return");
-      } else {
-        codeLines.add("new-int " + val);
-        codeLines.add("push-int " + fields);
-        codeLines.add("new-int 0");
-        codeLines.add("set-field");
-        codeLines.add("return");
-      }
-    }
-  }
-}
-
-/* String value */
-void StringValue():
-{
-  Token t;
-  String val;
-}
-{
-  t=<STRING>
-  {
-    val = t.image;
-    log(val, 2);
-    if (inDeclaration) {
-      if (inMethod) {
-        codeLines.add("new-str " + val);
-        codeLines.add("push-local " + localVars);
-        codeLines.add("return");
-      } else {
-        codeLines.add("new-str " + val);
-        codeLines.add("push-str " + fields);
-        codeLines.add("new-str " + val);
-        codeLines.add("set-field");
-        codeLines.add("return");
-      }
-    }
+    log("CONDITION: END");
   }
 }
 
 /* Array */
 void Indexer():
 {
-  //Token t;
+  log("INDEXER: BEGIN");
+  Token t;
 }
 {
-  <ID> ArrayIndexing()
+  t=<ID>{
+    log(t.image + "[<ARRAY_INDEXING>]");
+  }  ArrayIndexing()
   {
-    //return t;
+    log("INDEXER: END");
   }
 }
 
 /* Array indexing */
 void ArrayIndexing():
 {
-  //Token t;
+  log("ARRAY_INDEXING: BEGIN");
 }
 {
   [<LBRACKET> Expression() <RBRACKET>]
   {
-    log("<ARRAY_INDEXING>", 2);
+    log("ARRAY_INDEXING: END");
   }
 }
 
 /* Math expression */
 void MathExpression():
 {
-  Stack<String> x = new Stack<String>();
+  log("MATH_EXPRESSION: BEGIN");
 }
 {
-  <LPAREN> Term(x) MathExpressionExt(x) <RPAREN>
+  <LPAREN> Term() MathExpressionExt() <RPAREN>
   {
-    x.push(" > MATH_EXPRESSION()");
-    while (!x.empty()) {
-      log((String)x.pop(), 2);
-    }
+    log("MATH_EXPRESSION: END");
   }
 }
 
 /* Math expression extension */
-void MathExpressionExt(Stack<String> x):
+void MathExpressionExt():
 {
+  log("MATH_EXPRESSION_EXT: BEGIN");
   String op = null;
 }
 {
-  [(<PLUS>{ op="add"; } | <MINUS>{ op="subtract"; }) Term(x) MathExpressionExt(x)]
+  [(<PLUS>{ op="add"; } | <MINUS>{ op="subtract"; }) Term() MathExpressionExt()]
   {
     if (op != null) {
-      log("[MATH_EXPRESSION_EXT] call " + mem.addConstant(op), 2);
+      log("call " + mem.addConstant(op), 2);
       codeLines.add("call " + mem.addConstant(op));
     }
-    x.push(" > MATH_EXPRESSION_EXT()");
+    log("MATH_EXPRESSION_EXT: END");
   }
 }
 
-/* Term */
-void Term(Stack<String> x):
-{}
+//* Term */
+void Term():
 {
-  Factor(x) TermExt(x)
+  log("TERM: BEGIN");
+}
+{
+  Factor() TermExt()
   {
-    x.push(" > TERM()");
+    log("TERM: END");
   }
 }
 
 /* Term extension */
-void TermExt(Stack<String> x):
-{}
+void TermExt():
 {
-  [(<MULTIPLICATION> | <DIVISION> | <MODULO> | <POWER>) Factor(x) TermExt(x)]
+  log("TERM_EXT: BEGIN");
+}
+{
+  [(<MULTIPLICATION> | <DIVISION> | <MODULO> | <POWER>) Factor() TermExt()]
   {
-    x.push(" > TERM_EXT()");
+    log("TERM_EXT: END");
   }
 }
 
 /* Factor */
-void Factor(Stack<String> x):
+void Factor():
 {
+  log("FACTOR: BEGIN");
   inFactor = true;
   Token t;
 }
 {
-  IntegerValue() | t=<ID>{
+  t=<INTEGER> | t=<ID>{
     // t.image ~ nazev promenne!
     // -> z toho udelat lookup v hash-tabulce <index, nazev>
     // -> do promenne se pak priradi hodnota
-    log("[FACTOR] new-int " + t.image, 2);
-    codeLines.add("new-int " + t.image);
+    
+    //log("new-int " + t.image, 2);
+    //codeLines.add("new " + mem.addConstant(t.image));
     return;
   } | MathExpression()
   {
     inFactor = false;
-    x.push(" > FACTOR()");
+    log("FACTOR: END");
   }
 }
